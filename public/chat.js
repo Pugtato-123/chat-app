@@ -5,20 +5,24 @@ const chatBox = document.getElementById('chat-box');
 const msgInput = document.getElementById('msg-input');
 const sendBtn = document.getElementById('send-btn');
 const typingIndicator = document.getElementById('typing-indicator');
+const userListEl = document.getElementById('user-list');
+const usernameInput = document.getElementById('username-input');
+const joinBtn = document.getElementById('join-btn');
 
 let myUsername = '';
 const room = 'main'; // always join same room
 
-// Prompt for username once
-while (!myUsername) {
-  myUsername = prompt("Enter your username")?.trim() || '';
-}
-
-// Auto-join room
-socket.emit('join', { username: myUsername, room }, (res) => {
-  if (res.ok) {
-    console.log(`Joined room: ${res.room} as ${res.username}`);
-  }
+// Join button sets username and joins room
+joinBtn.addEventListener('click', () => {
+  const name = usernameInput.value.trim();
+  if (!name) return;
+  myUsername = name;
+  socket.emit('join', { username: myUsername }, (res) => {
+    if (res.ok) {
+      chatBox.innerHTML = ''; // clear chat
+      console.log(`Joined room: ${res.room} as ${res.username}`);
+    }
+  });
 });
 
 // Send message function
@@ -41,9 +45,7 @@ msgInput.addEventListener('keypress', (e) => {
 });
 
 // Display messages
-socket.on('message', (msg) => {
-  addMessageToChat(msg);
-});
+socket.on('message', (msg) => addMessageToChat(msg));
 
 // Display system messages
 socket.on('system', (text) => {
@@ -54,13 +56,22 @@ socket.on('system', (text) => {
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// Update users list
+socket.on('users', (users) => {
+  userListEl.innerHTML = '';
+  users.forEach(u => {
+    const li = document.createElement('li');
+    li.textContent = u;
+    userListEl.appendChild(li);
+  });
+});
+
 // Typing indicator
 msgInput.addEventListener('input', () => {
   socket.emit('typing', msgInput.value.length > 0);
 });
 
 socket.on('typing', ({ username, isTyping }) => {
-  if (!typingIndicator) return;
   typingIndicator.textContent = isTyping ? `${username} is typing...` : '';
 });
 

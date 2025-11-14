@@ -7,51 +7,61 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files
+// Serve static files from public folder
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Track users in the room
-const users = {};
+const users = {}; // socket.id -> username
+const ROOM = 'main'; // always join same room
 
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
 
-  const username = 'Guest-' + socket.id.slice(0, 4);
-  const room = 'main';
-  users[socket.id] = username;
+  // Auto-join the default room
+  socket.join(ROOM);
 
-  // Auto-join room
-  socket.join(room);
-  socket.to(room).emit('system', `${username} has joined the room.`);
-  io.in(room).emit('users', Object.values(users));
+  // Handle join with username
+  socket.on('join', ({ username }, ack) => {
+    if (!username) username = 'Guest-' + socket.id.slice(0, 4);
+    users[socket.id] = username;
 
-  // Handle messages
+    socket.to(ROOM).emit('system', `${username} has joined the room.`);
+    io.in(ROOM).emit('users', Object.values(users));
+
+    ack && ack({ ok: true, username, room: ROOM });
+  });
+
+  // Handle normal messages
   socket.on('message', ({ text }) => {
-    io.in(room).emit('message', { username, text, ts: Date.now(), type: 'normal' });
+    const username = users[socket.id] || 'Unknown';
+    io.in(ROOM).emit('message', { username, text, type: 'normal' });
   });
 
   // Handle direct messages
   socket.on('directMessage', ({ toUsername, text }) => {
     const toSocketId = Object.keys(users).find(id => users[id] === toUsername);
+    const username = users[socket.id] || 'Unknown';
     if (toSocketId) {
-      io.to(toSocketId).emit('message', { username, text, ts: Date.now(), type: 'direct', to: toUsername });
-      socket.emit('message', { username, text, ts: Date.now(), type: 'direct', to: toUsername });
+      io.to(toSocketId).emit('message', { username, text, type: 'direct', to: toUsername });
+      socket.emit('message', { username, text, type: 'direct', to: toUsername });
     }
   });
 
   // Typing indicator
   socket.on('typing', (isTyping) => {
-    socket.to(room).emit('typing', { username, isTyping });
+    const username = users[socket.id] || 'Unknown';
+    socket.to(ROOM).emit('typing', { username, isTyping });
   });
 
   // Disconnect
   socket.on('disconnect', () => {
+    const username = users[socket.id];
     delete users[socket.id];
-    socket.to(room).emit('system', `${username} has left.`);
-    io.in(room).emit('users', Object.values(users));
+    socket.to(ROOM).emit('system', `${username} has left the room.`);
+    io.in(ROOM).emit('users', Object.values(users));
   });
 });
 

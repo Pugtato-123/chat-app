@@ -1,5 +1,4 @@
-// Render-ready Chat App Server
-// Own messages highlight, room switching, direct messages, serving frontend correctly
+// Render-ready Chat App Server with last 10 messages
 
 const express = require('express');
 const http = require('http');
@@ -12,14 +11,13 @@ const io = new Server(server);
 
 // Serve static files from public folder
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Default route to serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const rooms = {};
 const userSockets = {};
+const roomMessages = {}; // store last 10 messages per room
 
 io.on('connection', (socket) => {
   console.log('socket connected', socket.id);
@@ -33,6 +31,11 @@ io.on('connection', (socket) => {
     rooms[room].users[socket.id] = username;
     userSockets[username] = socket.id;
 
+    // send last 10 messages to new user
+    if (roomMessages[room]) {
+      socket.emit('previousMessages', roomMessages[room]);
+    }
+
     ack && ack({ ok: true, room, username });
 
     socket.to(room).emit('system', `${username} has joined the room.`);
@@ -42,6 +45,12 @@ io.on('connection', (socket) => {
   socket.on('message', ({ room, text }) => {
     const username = (rooms[room] && rooms[room].users[socket.id]) || 'Unknown';
     const payload = { username, text, ts: Date.now(), type: 'normal' };
+
+    // store message in roomMessages
+    roomMessages[room] = roomMessages[room] || [];
+    roomMessages[room].push(payload);
+    if (roomMessages[room].length > 10) roomMessages[room].shift();
+
     io.in(room).emit('message', payload);
   });
 

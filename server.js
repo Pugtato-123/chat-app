@@ -1,89 +1,104 @@
-// Render-ready Chat App Server with last 10 messages
+const socket = io();
 
-const express = require('express');
-const http = require('http');
-const path = require('path');
-const { Server } = require('socket.io');
+// Get DOM elements
+const chatBox = document.getElementById('chat-box');
+const msgInput = document.getElementById('msg-input');
+const sendBtn = document.getElementById('send-btn');
+const usernameInput = document.getElementById('username-input');
+const roomInput = document.getElementById('room-input');
+const joinBtn = document.getElementById('join-btn');
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+let myUsername = '';
+let currentRoom = '';
 
-// Serve static files from public folder
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Join room
+joinBtn.addEventListener('click', () => {
+  const username = usernameInput.value || 'Guest';
+  const room = roomInput.value || 'main';
+  myUsername = username;
+  currentRoom = room;
 
-const rooms = {};
-const userSockets = {};
-const roomMessages = {}; // store last 10 messages per room
-
-io.on('connection', (socket) => {
-  console.log('socket connected', socket.id);
-
-  socket.on('join', ({ room, username }, ack) => {
-    room = String(room || 'main');
-    username = String(username || 'Guest-' + socket.id.slice(0,4));
-
-    socket.join(room);
-    rooms[room] = rooms[room] || { users: {} };
-    rooms[room].users[socket.id] = username;
-    userSockets[username] = socket.id;
-
-    // send last 10 messages to new user
-    if (roomMessages[room]) {
-      socket.emit('previousMessages', roomMessages[room]);
+  socket.emit('join', { username, room }, (res) => {
+    if (res.ok) {
+      chatBox.innerHTML = ''; // clear chat on join
     }
-
-    ack && ack({ ok: true, room, username });
-
-    socket.to(room).emit('system', `${username} has joined the room.`);
-    io.in(room).emit('users', Object.values(rooms[room].users));
-  });
-
-  socket.on('message', ({ room, text }) => {
-    const username = (rooms[room] && rooms[room].users[socket.id]) || 'Unknown';
-    const payload = { username, text, ts: Date.now(), type: 'normal' };
-
-    // store message in roomMessages
-    roomMessages[room] = roomMessages[room] || [];
-    roomMessages[room].push(payload);
-    if (roomMessages[room].length > 10) roomMessages[room].shift();
-
-    io.in(room).emit('message', payload);
-  });
-
-  socket.on('directMessage', ({ toUsername, text }) => {
-    const toSocketId = userSockets[toUsername];
-    if(toSocketId){
-      const username = Object.values(rooms).map(r=>r.users[socket.id])[0] || 'Unknown';
-      io.to(toSocketId).emit('message', { username, text, ts: Date.now(), type: 'direct' });
-      socket.emit('message', { username, text, ts: Date.now(), type: 'direct', to: toUsername });
-    }
-  });
-
-  socket.on('typing', ({ room, isTyping }) => {
-    const username = (rooms[room] && rooms[room].users[socket.id]) || 'Unknown';
-    socket.to(room).emit('typing', { username, isTyping });
-  });
-
-  socket.on('disconnecting', () => {
-    for (const room of socket.rooms) {
-      if (rooms[room] && rooms[room].users[socket.id]) {
-        const username = rooms[room].users[socket.id];
-        delete rooms[room].users[socket.id];
-        delete userSockets[username];
-        socket.to(room).emit('system', `${username} has left.`);
-        io.in(room).emit('users', Object.values(rooms[room].users));
-      }
-    }
-  });
-
-  socket.on('leave', ({ room }) => {
-    socket.leave(room);
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Listen for previous messages
+socket.on('previousMessages', (messages) => {
+  messages.forEach(msg => addMessageToChat(msg));
+});
+
+// Send message
+sendBtn.addEventListener('click', () => {
+  const text = msgInput.value;
+  if (!text) return;
+  socket.emit('message', { room: currentRoom, text });
+  msgInput.value = '';
+});
+
+// Display messages
+socket.on('message', (msg) => {
+  addMessageToChat(msg);
+});
+
+// Display system messages
+socket.on('system', (text) => {
+  const div = document.createElement('div');
+  div.classList.add('system-message');
+  div.textContent = text;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// Display users list (optional)
+socket.on('users', (users) => {
+  const userList = document.getElementById('user-list');
+  if (userList) {
+    userList.innerHTML = '';
+    users.forEach(u => {
+      const li = document.createElement('li');
+      li.textContent = u;
+      userList.appendChild(li);
+    });
+  }
+});
+
+// Add message to chat
+function addMessageToChat(msg) {
+  const div = document.createElement('div');
+
+  if (msg.username === myUsername) {
+    div.classList.add('my-message'); // highlight your own messages
+  }
+
+  if (msg.type === 'direct') {
+    div.classList.add('direct-message');
+    if (msg.to && msg.to === myUsername) {
+      div.textContent = `(DM to me) ${msg.username}: ${msg.text}`;
+    } else {
+      div.textContent = `(DM) ${msg.username}: ${msg.text}`;
+    }
+  } else {
+    div.textContent = `${msg.username}: ${msg.text}`;
+  }
+
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Optional: typing indicator
+msgInput.addEventListener('input', () => {
+  socket.emit('typing', { room: currentRoom, isTyping: msgInput.value.length > 0 });
+});
+
+socket.on('typing', ({ username, isTyping }) => {
+  const typingDiv = document.getElementById('typing-indicator');
+  if (!typingDiv) return;
+  if (isTyping) {
+    typingDiv.textContent = `${username} is typing...`;
+  } else {
+    typingDiv.textContent = '';
+  }
+});

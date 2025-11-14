@@ -1,0 +1,16 @@
+body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:#f5f7fb; margin:0; }
+#app { max-width:1000px; margin:24px auto; background:white; border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,0.08); overflow:hidden; }
+header { padding:16px 20px; border-bottom:1px solid #eee; }
+.controls { display:flex; gap:8px; padding:12px 20px; align-items:center; }
+.controls input { padding:8px; border-radius:6px; border:1px solid #ddd; }
+.controls button { padding:8px 12px; border-radius:6px; border:0; background:#2b6cb0; color:white; cursor:pointer; }
+.main { display:flex; }
+.sidebar { width:180px; padding:12px; border-right:1px solid #f0f0f0; }
+.chat { flex:1; display:flex; flex-direction:column; }
+.messages { padding:12px; height:420px; overflow:auto; }
+.msg { margin-bottom:10px; }
+.composer { display:flex; gap:8px; padding:12px; border-top:1px solid #eee; }
+.composer input { flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; }
+.composer button { padding:8px 12px; border-radius:6px; border:0; background:#2b6cb0; color:white; }
+.time { color:#999; font-size:0.8em; margin-left:8px; }
+.typing { padding:0 12px 12px; color:#666; font-style:italic; }

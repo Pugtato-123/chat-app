@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Chat Room</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Realtime Chat Room</h1>
+    </header>
+
+    <section class="controls">
+      <input id="username" placeholder="Your name" />
+      <input id="room" placeholder="Room (default: main)" />
+      <button id="joinBtn">Join</button>
+    </section>
+
+    <section class="main">
+      <aside class="sidebar">
+        <h3>Users</h3>
+        <ul id="users"></ul>
+      </aside>
+
+      <div class="chat">
+        <div id="messages" class="messages"></div>
+
+        <div class="composer">
+          <input id="messageInput" placeholder="Type a message..." />
+          <button id="sendBtn">Send</button>
+        </div>
+
+        <div id="typing" class="typing"></div>
+      </div>
+    </section>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+const usernameInput = document.getElementById('username');
+const roomInput = document.getElementById('room');
+const joinBtn = document.getElementById('joinBtn');
+const usersList = document.getElementById('users');
+const messagesEl = document.getElementById('messages');
+const messageInput = document.getElementById('messageInput');
+const sendBtn = document.getElementById('sendBtn');
+const typingEl = document.getElementById('typing');
+
+let currentRoom = null;
+let currentUser = null;
+let typingTimeout = null;
+const userColors = {};
+
+function getColor(username) {
+  if (!userColors[username]) {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    userColors[username] = color;
+  }
+  return userColors[username];
+}
+
+function appendMessage(html) {
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.innerHTML = html;
+  messagesEl.appendChild(div);
+
+  const nearBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 100;
+  if (nearBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+joinBtn.addEventListener('click', () => {
+  const username = usernameInput.value.trim() || null;
+  const room = roomInput.value.trim() || 'main';
+  socket.emit('join', { room, username }, (res) => {
+    if (res && res.ok) {
+      currentRoom = res.room;
+      currentUser = res.username;
+      appendMessage(`<em>Joined room: ${currentRoom} as ${currentUser}</em>`);
+    }
+  });
+});
+
+sendBtn.addEventListener('click', sendMessage);
+messageInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendMessage();
+  socket.emit('typing', { room: currentRoom, isTyping: true });
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    socket.emit('typing', { room: currentRoom, isTyping: false });
+  }, 800);
+});
+
+function sendMessage() {
+  const text = messageInput.value.trim();
+  if (!text || !currentRoom) return;
+  socket.emit('message', { room: currentRoom, text });
+  messageInput.value = '';
+  socket.emit('typing', { room: currentRoom, isTyping: false });
+}
+
+socket.on('message', ({ username, text, ts }) => {
+  const time = new Date(ts).toLocaleTimeString();
+  appendMessage(`<strong style="color:${getColor(username)}">${escapeHtml(username)}</strong> <span class="time">${time}</span><div>${escapeHtml(text)}</div>`);
+});
+
+socket.on('system', (text) => {
+  appendMessage(`<em>${escapeHtml(text)}</em>`);
+});
+
+socket.on('users', (users) => {
+  usersList.innerHTML = '';
+  users.forEach(u => {
+    const li = document.createElement('li');
+    li.textContent = u;
+    usersList.appendChild(li);
+  });
+});
+
+socket.on('typing', ({ username, isTyping }) => {
+  typingEl.textContent = isTyping ? `${username} is typing…` : '';
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+</script>
+</body>
+</html>

@@ -1,4 +1,12 @@
-const socket = io();
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const { Server } = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
 
 // Get DOM elements
 const chatBox = document.getElementById('chat-box');

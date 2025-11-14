@@ -6,15 +6,38 @@ const msgInput = document.getElementById('msg-input');
 const sendBtn = document.getElementById('send-btn');
 const typingIndicator = document.getElementById('typing-indicator');
 
-const myUsername = prompt("Enter your username") || 'Guest';
+let myUsername = '';
 const room = 'main'; // always join same room
 
-// Send message
-sendBtn.addEventListener('click', () => {
-  const text = msgInput.value;
+// Prompt for username once
+while (!myUsername) {
+  myUsername = prompt("Enter your username")?.trim() || '';
+}
+
+// Auto-join room
+socket.emit('join', { username: myUsername, room }, (res) => {
+  if (res.ok) {
+    console.log(`Joined room: ${res.room} as ${res.username}`);
+  }
+});
+
+// Send message function
+function sendMessage() {
+  const text = msgInput.value.trim();
   if (!text) return;
   socket.emit('message', { text });
   msgInput.value = '';
+}
+
+// Send message on button click
+sendBtn.addEventListener('click', sendMessage);
+
+// Send message on Enter key
+msgInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    sendMessage();
+  }
 });
 
 // Display messages
@@ -29,18 +52,6 @@ socket.on('system', (text) => {
   div.textContent = text;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
-});
-
-// Users list (optional)
-socket.on('users', (userList) => {
-  const ul = document.getElementById('user-list');
-  if (!ul) return;
-  ul.innerHTML = '';
-  userList.forEach(u => {
-    const li = document.createElement('li');
-    li.textContent = u;
-    ul.appendChild(li);
-  });
 });
 
 // Typing indicator

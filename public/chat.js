@@ -11,16 +11,21 @@ const joinBtn = document.getElementById('join-btn');
 
 let myUsername = '';
 const room = 'main'; // always join same room
+let joined = false;
 
 // Join button sets username and joins room
 joinBtn.addEventListener('click', () => {
   const name = usernameInput.value.trim();
-  if (!name) return;
+  if (!name || joined) return; // prevent re-joining
   myUsername = name;
+  joined = true;
+
   socket.emit('join', { username: myUsername }, (res) => {
     if (res.ok) {
-      chatBox.innerHTML = ''; // clear chat
       console.log(`Joined room: ${res.room} as ${res.username}`);
+      // Optionally disable input after joining
+      usernameInput.disabled = true;
+      joinBtn.disabled = true;
     }
   });
 });
@@ -28,7 +33,7 @@ joinBtn.addEventListener('click', () => {
 // Send message function
 function sendMessage() {
   const text = msgInput.value.trim();
-  if (!text) return;
+  if (!text || !joined) return;
   socket.emit('message', { text });
   msgInput.value = '';
 }
@@ -68,6 +73,7 @@ socket.on('users', (users) => {
 
 // Typing indicator
 msgInput.addEventListener('input', () => {
+  if (!joined) return;
   socket.emit('typing', msgInput.value.length > 0);
 });
 

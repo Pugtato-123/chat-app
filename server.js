@@ -7,80 +7,51 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files from public folder
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Room and user storage
-const rooms = {};
-const userSockets = {};
-const roomMessages = {}; // store last 10 messages per room
+// Track users in the room
+const users = {};
 
 io.on('connection', (socket) => {
-  console.log('socket connected', socket.id);
+  console.log('Socket connected:', socket.id);
 
-  socket.on('join', ({ room, username }, ack) => {
-    room = String(room || 'main');
-    username = String(username || 'Guest-' + socket.id.slice(0, 4));
+  const username = 'Guest-' + socket.id.slice(0, 4);
+  const room = 'main';
+  users[socket.id] = username;
 
-    socket.join(room);
-    rooms[room] = rooms[room] || { users: {} };
-    rooms[room].users[socket.id] = username;
-    userSockets[username] = socket.id;
+  // Auto-join room
+  socket.join(room);
+  socket.to(room).emit('system', `${username} has joined the room.`);
+  io.in(room).emit('users', Object.values(users));
 
-    // Send last 10 messages to new user
-    if (roomMessages[room]) {
-      socket.emit('previousMessages', roomMessages[room]);
-    }
-
-    ack && ack({ ok: true, room, username });
-
-    socket.to(room).emit('system', `${username} has joined the room.`);
-    io.in(room).emit('users', Object.values(rooms[room].users));
+  // Handle messages
+  socket.on('message', ({ text }) => {
+    io.in(room).emit('message', { username, text, ts: Date.now(), type: 'normal' });
   });
 
-  socket.on('message', ({ room, text }) => {
-    const username = (rooms[room] && rooms[room].users[socket.id]) || 'Unknown';
-    const payload = { username, text, ts: Date.now(), type: 'normal' };
-
-    // store last 10 messages
-    roomMessages[room] = roomMessages[room] || [];
-    roomMessages[room].push(payload);
-    if (roomMessages[room].length > 10) roomMessages[room].shift();
-
-    io.in(room).emit('message', payload);
-  });
-
+  // Handle direct messages
   socket.on('directMessage', ({ toUsername, text }) => {
-    const toSocketId = userSockets[toUsername];
+    const toSocketId = Object.keys(users).find(id => users[id] === toUsername);
     if (toSocketId) {
-      const username = Object.values(rooms).map(r => r.users[socket.id])[0] || 'Unknown';
-      io.to(toSocketId).emit('message', { username, text, ts: Date.now(), type: 'direct' });
+      io.to(toSocketId).emit('message', { username, text, ts: Date.now(), type: 'direct', to: toUsername });
       socket.emit('message', { username, text, ts: Date.now(), type: 'direct', to: toUsername });
     }
   });
 
-  socket.on('typing', ({ room, isTyping }) => {
-    const username = (rooms[room] && rooms[room].users[socket.id]) || 'Unknown';
+  // Typing indicator
+  socket.on('typing', (isTyping) => {
     socket.to(room).emit('typing', { username, isTyping });
   });
 
-  socket.on('disconnecting', () => {
-    for (const room of socket.rooms) {
-      if (rooms[room] && rooms[room].users[socket.id]) {
-        const username = rooms[room].users[socket.id];
-        delete rooms[room].users[socket.id];
-        delete userSockets[username];
-        socket.to(room).emit('system', `${username} has left.`);
-        io.in(room).emit('users', Object.values(rooms[room].users));
-      }
-    }
-  });
-
-  socket.on('leave', ({ room }) => {
-    socket.leave(room);
+  // Disconnect
+  socket.on('disconnect', () => {
+    delete users[socket.id];
+    socket.to(room).emit('system', `${username} has left.`);
+    io.in(room).emit('users', Object.values(users));
   });
 });
 

@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chat App</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; }
-  #sidebar { width: 200px; background: #f4f4f4; padding: 10px; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100vh; }
+  #sidebar { width: 200px; background: #f4f4f4; padding: 10px; }
   #main { flex: 1; display: flex; flex-direction: column; }
   #chat-box { flex: 1; padding: 10px; overflow-y: auto; background: #fff; }
   #input-area { display: flex; padding: 10px; background: #eee; }
@@ -15,31 +15,24 @@
   .my-message { background-color: #d0f0c0; padding: 2px 5px; margin: 2px 0; border-radius: 3px; }
   .direct-message { background-color: #f0d0d0; padding: 2px 5px; margin: 2px 0; border-radius: 3px; }
   .system-message { font-style: italic; color: gray; margin: 2px 0; }
-  #typing-indicator { font-style: italic; color: gray; margin: 2px 0; }
-  ul { padding-left: 15px; }
 </style>
 </head>
 <body>
-
-<div id="sidebar">
-  <h3>Join Room</h3>
-  <input type="text" id="username-input" placeholder="Username"><br><br>
-  <input type="text" id="room-input" placeholder="Room"><br><br>
-  <button id="join-btn">Join</button>
-  <h4>Users</h4>
-  <ul id="user-list"></ul>
-</div>
-
-<div id="main">
-  <div id="chat-box"></div>
-  <div id="typing-indicator"></div>
-  <div id="input-area">
-    <input type="text" id="msg-input" placeholder="Type a message">
-    <button id="send-btn">Send</button>
+  <div id="sidebar">
+    <h4>Users</h4>
+    <ul id="user-list"></ul>
   </div>
-</div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="chat.js"></script>
+  <div id="main">
+    <div id="chat-box"></div>
+    <div id="typing-indicator"></div>
+    <div id="input-area">
+      <input type="text" id="msg-input" placeholder="Type a message">
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="chat.js"></script>
 </body>
 </html>

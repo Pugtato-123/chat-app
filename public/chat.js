@@ -75,6 +75,11 @@ socket.on('typing', ({ username, isTyping }) => {
   typingIndicator.textContent = isTyping ? `${username} is typing...` : '';
 });
 
+// Display last N messages when joining
+socket.on('message-history', (messages) => {
+  messages.forEach(msg => addMessageToChat(msg));
+});
+
 // Add message to chat
 function addMessageToChat(msg) {
   const div = document.createElement('div');

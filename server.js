@@ -11,8 +11,6 @@ const PORT = process.env.PORT || 10000;
 
 // Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Always send index.html for the root
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/index.html'));
 });
@@ -51,7 +49,7 @@ io.on("connection", (socket) => {
     callback({ ok: true, room: defaultRoom, username });
   });
 
-  // ---- SEND MESSAGE ----
+  // ---- SEND TEXT MESSAGE ----
   socket.on("message", ({ text }) => {
     const msg = {
       username: socket.data.username,
@@ -65,6 +63,22 @@ io.on("connection", (socket) => {
     if (messageHistory.length > 10) messageHistory.shift();
 
     io.to(defaultRoom).emit("message", msg);
+  });
+
+  // ---- SEND IMAGE ----
+  socket.on('image', ({ data, name }) => {
+    const msg = {
+      username: socket.data.username,
+      data,        // base64
+      name,
+      time: Date.now(),
+      type: 'image'
+    };
+
+    messageHistory.push(msg);
+    if (messageHistory.length > 10) messageHistory.shift();
+
+    io.to(defaultRoom).emit('image', msg);
   });
 
   // ---- TYPING INDICATOR ----
@@ -85,7 +99,6 @@ io.on("connection", (socket) => {
 
 });
 
-// ---- START SERVER ----
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

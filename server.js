@@ -1,82 +1,91 @@
 const express = require('express');
 const http = require('http');
-const path = require('path');
 const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files from public folder
+const PORT = process.env.PORT || 10000;
+
+// Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Always send index.html for the root
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
-// Track users in the room
-const users = {}; // socket.id -> username
-const ROOM = 'main'; // always join same room
-const MESSAGE_HISTORY_LIMIT = 10;
-const messageHistory = []; // stores last N messages
+// ---- CHAT DATA ----
+const defaultRoom = "main";
+const messageHistory = [];   // store last 10 chat messages
 
-io.on('connection', (socket) => {
-  console.log('Socket connected:', socket.id);
+// ---- USER LIST ----
+function getUsersInRoom(room) {
+  return Array.from(io.sockets.adapter.rooms.get(room) || []).map(
+    id => io.sockets.sockets.get(id)?.data?.username
+  ).filter(Boolean);
+}
 
-  // Auto-join the default room
-  socket.join(ROOM);
+function updateUsers(room) {
+  io.to(room).emit("users", getUsersInRoom(room));
+}
 
-  // Handle join with username
-  socket.on('join', ({ username }, ack) => {
-    if (!username) username = 'Guest-' + socket.id.slice(0, 4);
-    users[socket.id] = username;
+// ---- SOCKET HANDLING ----
+io.on("connection", (socket) => {
 
-    // Send last messages to the new user
-    socket.emit('message-history', messageHistory);
+  // ---- JOIN EVENT ----
+  socket.on("join", ({ username }, callback) => {
+    socket.data.username = username;
+    socket.join(defaultRoom);
 
-    socket.to(ROOM).emit('system', `${username} has joined the room.`);
-    io.in(ROOM).emit('users', Object.values(users));
+    // send last 10 messages
+    socket.emit("message-history", messageHistory);
 
-    ack && ack({ ok: true, username, room: ROOM });
+    // system message
+    io.to(defaultRoom).emit("system", `${username} joined the chat`);
+
+    updateUsers(defaultRoom);
+
+    callback({ ok: true, room: defaultRoom, username });
   });
 
-  // Handle normal messages
-  socket.on('message', ({ text }) => {
-    const username = users[socket.id] || 'Unknown';
-    const msg = { username, text, type: 'normal' };
-    
-    // Save to history
+  // ---- SEND MESSAGE ----
+  socket.on("message", ({ text }) => {
+    const msg = {
+      username: socket.data.username,
+      text,
+      time: Date.now(),
+      type: "normal",
+    };
+
+    // save to history
     messageHistory.push(msg);
-    if (messageHistory.length > MESSAGE_HISTORY_LIMIT) messageHistory.shift();
+    if (messageHistory.length > 10) messageHistory.shift();
 
-    io.in(ROOM).emit('message', msg);
+    io.to(defaultRoom).emit("message", msg);
   });
 
-  // Handle direct messages
-  socket.on('directMessage', ({ toUsername, text }) => {
-    const toSocketId = Object.keys(users).find(id => users[id] === toUsername);
-    const username = users[socket.id] || 'Unknown';
-    const msg = { username, text, type: 'direct', to: toUsername };
+  // ---- TYPING INDICATOR ----
+  socket.on("typing", (isTyping) => {
+    socket.to(defaultRoom).emit("typing", {
+      username: socket.data.username,
+      isTyping
+    });
+  });
 
-    if (toSocketId) {
-      io.to(toSocketId).emit('message', msg);
-      socket.emit('message', msg);
+  // ---- DISCONNECT ----
+  socket.on("disconnect", () => {
+    if (socket.data.username) {
+      io.to(defaultRoom).emit("system", `${socket.data.username} left the chat`);
+      updateUsers(defaultRoom);
     }
   });
 
-  // Typing indicator
-  socket.on('typing', (isTyping) => {
-    const username = users[socket.id] || 'Unknown';
-    socket.to(ROOM).emit('typing', { username, isTyping });
-  });
-
-  // Disconnect
-  socket.on('disconnect', () => {
-    const username = users[socket.id];
-    delete users[socket.id];
-    socket.to(ROOM).emit('system', `${username} has left the room.`);
-    io.in(ROOM).emit('users', Object.values(users));
-  });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// ---- START SERVER ----
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

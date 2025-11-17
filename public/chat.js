@@ -13,6 +13,18 @@ const imageInput = document.getElementById('image-input');
 let myUsername = '';
 let joined = false;
 
+// ----- Browser tab notifications -----
+const originalTitle = document.title;
+let unreadCount = 0;
+
+function handleVisibilityChange() {
+  if (!document.hidden) {
+    unreadCount = 0;
+    document.title = originalTitle;
+  }
+}
+document.addEventListener("visibilitychange", handleVisibilityChange);
+
 // ---- JOIN BUTTON ----
 joinBtn.addEventListener('click', () => {
   const name = usernameInput.value.trim();
@@ -63,10 +75,24 @@ imageInput.addEventListener('change', () => {
 });
 
 // ---- RECEIVE TEXT MESSAGE ----
-socket.on('message', (msg) => addMessageToChat(msg));
+socket.on('message', (msg) => {
+  addMessageToChat(msg);
+
+  if (document.hidden) {
+    unreadCount++;
+    document.title = `(${unreadCount}) New message!`;
+  }
+});
 
 // ---- RECEIVE IMAGE ----
-socket.on('image', (msg) => addImageToChat(msg));
+socket.on('image', (msg) => {
+  addImageToChat(msg);
+
+  if (document.hidden) {
+    unreadCount++;
+    document.title = `(${unreadCount}) New message!`;
+  }
+});
 
 // ---- SYSTEM MESSAGES ----
 socket.on('system', (text) => {

@@ -1,11 +1,10 @@
 const socket = io();
-
 let username = "";
 
 // ===== SET USERNAME =====
 document.getElementById("setNameBtn").onclick = () => {
   username = document.getElementById("nameInput").value.trim();
-  if (username.length === 0) return;
+  if (!username) return;
   socket.emit("setName", username);
 };
 
@@ -16,16 +15,10 @@ document.getElementById("nameInput").addEventListener("keypress", (e) => {
 // ===== SEND MESSAGE =====
 document.getElementById("sendBtn").onclick = () => {
   const msg = document.getElementById("msgInput").value.trim();
-  if (msg.length === 0) return;
+  if (!msg) return;
 
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  socket.emit("chatMessage", {
-    user: username,
-    message: msg,
-    time
-  });
-
+  socket.emit("chatMessage", { user: username, message: msg, time });
   document.getElementById("msgInput").value = "";
 };
 
@@ -43,8 +36,6 @@ function appendMessage(data) {
 }
 
 socket.on("chatMessage", appendMessage);
-
-// ===== RECEIVE MESSAGE HISTORY =====
 socket.on("messageHistory", (list) => {
   document.getElementById("messages").innerHTML = "";
   list.forEach(appendMessage);
@@ -61,7 +52,7 @@ socket.on("userList", (users) => {
   });
 });
 
-// ===== IF KICKED =====
+// ===== KICKED =====
 socket.on("kicked", () => {
   alert("You were kicked by the admin.");
   socket.disconnect();

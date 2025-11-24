@@ -7,32 +7,32 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname)));
-
-const ADMIN_PASSWORD = "changeme"; // <<< CHANGE THIS
-
+const ADMIN_PASSWORD = "changeme"; // <<< set your password
 let connectedUsers = new Map();
 let adminSockets = new Set();
-let messages = []; // last 10 messages stored
+let messages = []; // last 10 messages
+
+// Serve public folder
+app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
+  console.log("User connected:", socket.id);
 
-  // Send last 10 messages to the new user
+  // Send last 10 messages
   socket.emit("messageHistory", messages);
 
-  // User sets their name
+  // Set username
   socket.on("setName", (name) => {
     connectedUsers.set(socket.id, { id: socket.id, name });
     io.emit("userList", Array.from(connectedUsers.values()));
     broadcastAdminUsers();
   });
 
-  // Receive a chat message
+  // Receive message
   socket.on("chatMessage", (data) => {
     const entry = {
       user: data.user,
@@ -42,12 +42,10 @@ io.on("connection", (socket) => {
 
     messages.push(entry);
     if (messages.length > 10) messages.shift();
-
     io.emit("chatMessage", entry);
   });
 
-  // ----- ADMIN SYSTEM -----
-
+  // ADMIN LOGIN
   socket.on("adminLogin", (password) => {
     if (password === ADMIN_PASSWORD) {
       adminSockets.add(socket.id);
@@ -94,5 +92,5 @@ io.on("connection", (socket) => {
 });
 
 server.listen(3000, () => {
-  console.log("Listening on port 3000");
+  console.log("Server running on port 3000");
 });

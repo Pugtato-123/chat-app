@@ -29,7 +29,29 @@ document.getElementById("msgInput").addEventListener("keypress", (e) => {
 // ===== DISPLAY MESSAGE =====
 function appendMessage(data) {
   const div = document.createElement("div");
+
+  // Base message text
   div.textContent = `[${data.time}] ${data.user}: ${data.message}`;
+
+  // Rainbow effect for "rainbow"
+  if (data.user.toLowerCase() === "rainbow") {
+    let i = 0;
+    const colors = ["red", "orange", "yellow", "green", "blue", "indigo", "violet"];
+    div.innerHTML = `[${data.time}] <span style="color:${colors[i]}">${data.user}</span>: ${data.message}`;
+    
+    setInterval(() => {
+      i = (i + 1) % colors.length;
+      div.innerHTML = `[${data.time}] <span style="color:${colors[i]}">${data.user}</span>: ${data.message}`;
+    }, 500);
+  }
+
+  // Cool effect for "bean"
+  if (data.user.toLowerCase() === "bean") {
+    div.style.color = "cyan";
+    div.style.fontWeight = "bold";
+    div.style.textShadow = "0 0 5px magenta, 0 0 10px blue";
+  }
+
   document.getElementById("messages").appendChild(div);
   document.getElementById("messages").scrollTop =
     document.getElementById("messages").scrollHeight;

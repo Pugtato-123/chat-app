@@ -39,7 +39,6 @@ function appendMessage(data) {
     const colors = ["red", "orange", "yellow", "green", "blue", "indigo", "violet"];
     div.innerHTML = `[${data.time}] <span style="color:${colors[i]}">${data.user}</span>: ${data.message}`;
     
-    // Animate rainbow
     setInterval(() => {
       i = (i + 1) % colors.length;
       div.innerHTML = `[${data.time}] <span style="color:${colors[i]}">${data.user}</span>: ${data.message}`;
@@ -58,6 +57,11 @@ function appendMessage(data) {
     document.getElementById("messages").scrollHeight;
 }
 
+socket.on("chatMessage", appendMessage);
+socket.on("messageHistory", (list) => {
+  document.getElementById("messages").innerHTML = "";
+  list.forEach(appendMessage);
+});
 
 // ===== USER LIST =====
 socket.on("userList", (users) => {

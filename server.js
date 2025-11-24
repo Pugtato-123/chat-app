@@ -1,104 +1,98 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = process.env.PORT || 10000;
+app.use(express.static(path.join(__dirname)));
 
-// Serve frontend
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/index.html'));
+const ADMIN_PASSWORD = "changeme"; // <<< CHANGE THIS
+
+let connectedUsers = new Map();
+let adminSockets = new Set();
+let messages = []; // last 10 messages stored
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ---- CHAT DATA ----
-const defaultRoom = "main";
-const messageHistory = [];   // store last 10 chat messages
-
-// ---- USER LIST ----
-function getUsersInRoom(room) {
-  return Array.from(io.sockets.adapter.rooms.get(room) || []).map(
-    id => io.sockets.sockets.get(id)?.data?.username
-  ).filter(Boolean);
-}
-
-function updateUsers(room) {
-  io.to(room).emit("users", getUsersInRoom(room));
-}
-
-// ---- SOCKET HANDLING ----
 io.on("connection", (socket) => {
+  console.log("A user connected:", socket.id);
 
-  // ---- JOIN EVENT ----
-  socket.on("join", ({ username }, callback) => {
-    socket.data.username = username;
-    socket.join(defaultRoom);
+  // Send last 10 messages to the new user
+  socket.emit("messageHistory", messages);
 
-    // send last 10 messages
-    socket.emit("message-history", messageHistory);
-
-    // system message
-    io.to(defaultRoom).emit("system", `${username} joined the chat`);
-
-    updateUsers(defaultRoom);
-
-    callback({ ok: true, room: defaultRoom, username });
+  // User sets their name
+  socket.on("setName", (name) => {
+    connectedUsers.set(socket.id, { id: socket.id, name });
+    io.emit("userList", Array.from(connectedUsers.values()));
+    broadcastAdminUsers();
   });
 
-  // ---- SEND TEXT MESSAGE ----
-  socket.on("message", ({ text }) => {
-    const msg = {
-      username: socket.data.username,
-      text,
-      time: Date.now(),
-      type: "normal",
+  // Receive a chat message
+  socket.on("chatMessage", (data) => {
+    const entry = {
+      user: data.user,
+      message: data.message,
+      time: data.time
     };
 
-    // save to history
-    messageHistory.push(msg);
-    if (messageHistory.length > 10) messageHistory.shift();
+    messages.push(entry);
+    if (messages.length > 10) messages.shift();
 
-    io.to(defaultRoom).emit("message", msg);
+    io.emit("chatMessage", entry);
   });
 
-  // ---- SEND IMAGE ----
-  socket.on('image', ({ data, name }) => {
-    const msg = {
-      username: socket.data.username,
-      data,        // base64
-      name,
-      time: Date.now(),
-      type: 'image'
-    };
+  // ----- ADMIN SYSTEM -----
 
-    messageHistory.push(msg);
-    if (messageHistory.length > 10) messageHistory.shift();
-
-    io.to(defaultRoom).emit('image', msg);
-  });
-
-  // ---- TYPING INDICATOR ----
-  socket.on("typing", (isTyping) => {
-    socket.to(defaultRoom).emit("typing", {
-      username: socket.data.username,
-      isTyping
-    });
-  });
-
-  // ---- DISCONNECT ----
-  socket.on("disconnect", () => {
-    if (socket.data.username) {
-      io.to(defaultRoom).emit("system", `${socket.data.username} left the chat`);
-      updateUsers(defaultRoom);
+  socket.on("adminLogin", (password) => {
+    if (password === ADMIN_PASSWORD) {
+      adminSockets.add(socket.id);
+      socket.emit("adminAuthorized", true);
+      broadcastAdminUsers();
+      console.log("Admin connected");
+    } else {
+      socket.emit("adminAuthorized", false);
     }
   });
 
+  function broadcastAdminUsers() {
+    const users = Array.from(connectedUsers.values());
+    adminSockets.forEach(id => {
+      io.to(id).emit("adminUserList", users);
+    });
+  }
+
+  // Kick user
+  socket.on("kickUser", (username) => {
+    const entry = [...connectedUsers.entries()]
+      .find(([id, user]) => user.name === username);
+
+    if (entry) {
+      const [id] = entry;
+      io.to(id).emit("kicked");
+      io.sockets.sockets.get(id)?.disconnect();
+    }
+  });
+
+  // Clear chat
+  socket.on("clearChat", () => {
+    messages = [];
+    io.emit("chatCleared");
+  });
+
+  // Disconnect
+  socket.on("disconnect", () => {
+    connectedUsers.delete(socket.id);
+    adminSockets.delete(socket.id);
+    io.emit("userList", Array.from(connectedUsers.values()));
+    broadcastAdminUsers();
+  });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(3000, () => {
+  console.log("Listening on port 3000");
 });

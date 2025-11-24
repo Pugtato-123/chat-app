@@ -1,114 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
   <title>Chat App</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin: 0;
-      padding: 0;
-      background: #f0f0f0;
-    }
-
-    #chat-container {
-      width: 80%;
-      max-width: 800px;
-      margin-top: 20px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    #user-list-container {
-      margin-bottom: 10px;
-    }
-
-    #user-list {
-      list-style: none;
-      padding: 0;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    #chat-box {
-      height: 400px;
-      overflow-y: auto;
-      border: 1px solid #ccc;
-      padding: 10px;
-      background: #fff;
-      margin-bottom: 10px;
-    }
-
-    #chat-box div.my-message {
-      background: #d1ffd6;
-      padding: 4px;
-      margin-bottom: 2px;
-      border-radius: 4px;
-    }
-
-    #chat-box div.system-message {
-      color: #555;
-      font-style: italic;
-      margin-bottom: 2px;
-    }
-
-    #typing-indicator {
-      height: 20px;
-      font-style: italic;
-      color: #888;
-      margin-bottom: 10px;
-    }
-
-    #input-area {
-      display: flex;
-      gap: 5px;
-    }
-
-    #msg-input {
-      flex: 1;
-      padding: 5px;
-    }
-
-    #image-input {
-      padding: 5px;
-    }
-
-    #send-btn {
-      padding: 5px 10px;
-    }
-
-    input:disabled, button:disabled {
-      background: #ccc;
-    }
+    body { font-family: sans-serif; }
+    #messages { border: 1px solid #aaa; height: 300px; overflow-y: auto; padding: 5px; }
+    #users { border: 1px solid #aaa; height: 300px; overflow-y: auto; padding: 5px; }
   </style>
 </head>
 <body>
 
-  <div id="chat-container">
+<h2>Chat</h2>
 
-    <div id="user-list-container">
-      <ul id="user-list"></ul>
-    </div>
+<div>
+  <label>Your name:</label>
+  <input id="nameInput" type="text">
+  <button id="setNameBtn">Set</button>
+</div>
 
-    <div id="chat-box"></div>
-    <div id="typing-indicator"></div>
+<div style="display:flex; gap:20px; margin-top:15px;">
+  <div style="flex: 2;">
+    <div id="messages"></div>
 
-    <input type="text" id="username-input" placeholder="Enter your name">
-    <button id="join-btn">Join</button>
-
-    <div id="input-area">
-      <input type="text" id="msg-input" placeholder="Type a message">
-      <input type="file" id="image-input" accept="image/*">
-      <button id="send-btn">Send</button>
-    </div>
-
+    <input id="msgInput" type="text" placeholder="Message">
+    <button id="sendBtn">Send</button>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="chat.js"></script>
+  <div style="flex:1;">
+    <h3>Users</h3>
+    <ul id="userList"></ul>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="admin-login" style="display:none; margin-top:20px;">
+  <h3>Admin Login</h3>
+  <input id="admin-pass" type="password" placeholder="Admin Password">
+  <button id="admin-login-btn">Login</button>
+</div>
+
+<!-- ADMIN CONSOLE -->
+<div id="admin-console" style="display:none; margin-top:20px;">
+  <h3>Admin Console</h3>
+  <button id="clear-chat">Clear Chat</button>
+  <h4>Users</h4>
+  <ul id="admin-user-list"></ul>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="chat.js"></script>
+
 </body>
 </html>

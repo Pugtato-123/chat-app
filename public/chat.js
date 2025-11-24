@@ -1,163 +1,112 @@
 const socket = io();
 
-// DOM elements
-const chatBox = document.getElementById('chat-box');
-const msgInput = document.getElementById('msg-input');
-const sendBtn = document.getElementById('send-btn');
-const typingIndicator = document.getElementById('typing-indicator');
-const userListEl = document.getElementById('user-list');
-const usernameInput = document.getElementById('username-input');
-const joinBtn = document.getElementById('join-btn');
-const imageInput = document.getElementById('image-input');
+let username = "";
 
-let myUsername = '';
-let joined = false;
+// ===== SET USERNAME =====
+document.getElementById("setNameBtn").onclick = () => {
+  username = document.getElementById("nameInput").value.trim();
+  if (username.length === 0) return;
+  socket.emit("setName", username);
+};
 
-// ----- Browser tab notifications -----
-const originalTitle = document.title;
-let unreadCount = 0;
+document.getElementById("nameInput").addEventListener("keypress", (e) => {
+  if (e.key === "Enter") document.getElementById("setNameBtn").click();
+});
 
-function handleVisibilityChange() {
-  if (!document.hidden) {
-    unreadCount = 0;
-    document.title = originalTitle;
-  }
-}
-document.addEventListener("visibilitychange", handleVisibilityChange);
+// ===== SEND MESSAGE =====
+document.getElementById("sendBtn").onclick = () => {
+  const msg = document.getElementById("msgInput").value.trim();
+  if (msg.length === 0) return;
 
-// ---- JOIN BUTTON ----
-joinBtn.addEventListener('click', () => {
-  const name = usernameInput.value.trim();
-  if (!name || joined) return;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  myUsername = name;
-  joined = true;
-
-  socket.emit('join', { username: myUsername }, (res) => {
-    if (res.ok) {
-      usernameInput.disabled = true;
-      joinBtn.disabled = true;
-    }
+  socket.emit("chatMessage", {
+    user: username,
+    message: msg,
+    time
   });
+
+  document.getElementById("msgInput").value = "";
+};
+
+document.getElementById("msgInput").addEventListener("keypress", (e) => {
+  if (e.key === "Enter") document.getElementById("sendBtn").click();
 });
 
-// ---- SEND TEXT MESSAGE ----
-function sendMessage() {
-  const text = msgInput.value.trim();
-  if (!text || !joined) return;
-
-  socket.emit('message', { text });
-  msgInput.value = '';
+// ===== DISPLAY MESSAGE =====
+function appendMessage(data) {
+  const div = document.createElement("div");
+  div.textContent = `[${data.time}] ${data.user}: ${data.message}`;
+  document.getElementById("messages").appendChild(div);
+  document.getElementById("messages").scrollTop =
+    document.getElementById("messages").scrollHeight;
 }
 
-sendBtn.addEventListener('click', sendMessage);
-msgInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    sendMessage();
-  }
+socket.on("chatMessage", appendMessage);
+
+// ===== RECEIVE MESSAGE HISTORY =====
+socket.on("messageHistory", (list) => {
+  document.getElementById("messages").innerHTML = "";
+  list.forEach(appendMessage);
 });
 
-// ---- SEND IMAGE ----
-imageInput.addEventListener('change', () => {
-  if (!joined || !imageInput.files.length) return;
-
-  const file = imageInput.files[0];
-  const reader = new FileReader();
-
-  reader.onload = () => {
-    const base64Data = reader.result;
-    socket.emit('image', { data: base64Data, name: file.name });
-  };
-
-  reader.readAsDataURL(file);
-  imageInput.value = "";
-});
-
-// ---- RECEIVE TEXT MESSAGE ----
-socket.on('message', (msg) => {
-  addMessageToChat(msg);
-
-  if (document.hidden) {
-    unreadCount++;
-    document.title = `(${unreadCount}) New message!`;
-  }
-});
-
-// ---- RECEIVE IMAGE ----
-socket.on('image', (msg) => {
-  addImageToChat(msg);
-
-  if (document.hidden) {
-    unreadCount++;
-    document.title = `(${unreadCount}) New message!`;
-  }
-});
-
-// ---- SYSTEM MESSAGES ----
-socket.on('system', (text) => {
-  const div = document.createElement('div');
-  div.classList.add('system-message');
-  div.textContent = text;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-});
-
-// ---- USERS LIST ----
-socket.on('users', (users) => {
-  userListEl.innerHTML = '';
+// ===== USER LIST =====
+socket.on("userList", (users) => {
+  const list = document.getElementById("userList");
+  list.innerHTML = "";
   users.forEach(u => {
-    const li = document.createElement('li');
-    li.textContent = u;
-    userListEl.appendChild(li);
+    const li = document.createElement("li");
+    li.textContent = u.name;
+    list.appendChild(li);
   });
 });
 
-// ---- TYPING INDICATOR ----
-msgInput.addEventListener('input', () => {
-  if (!joined) return;
-  socket.emit('typing', msgInput.value.length > 0);
+// ===== IF KICKED =====
+socket.on("kicked", () => {
+  alert("You were kicked by the admin.");
+  socket.disconnect();
 });
 
-socket.on('typing', ({ username, isTyping }) => {
-  typingIndicator.textContent = isTyping ? `${username} is typing...` : '';
+// ===== CHAT CLEARED =====
+socket.on("chatCleared", () => {
+  document.getElementById("messages").innerHTML = "";
 });
 
-// ---- MESSAGE HISTORY ----
-socket.on('message-history', (messages) => {
-  messages.forEach(msg => {
-    if (msg.type === 'image') addImageToChat(msg);
-    else addMessageToChat(msg);
+// ===== SECRET ADMIN ACCESS (CTRL+SHIFT+A) =====
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key === "A") {
+    document.getElementById("admin-login").style.display = "block";
+  }
+});
+
+// ===== ADMIN LOGIN =====
+document.getElementById("admin-login-btn").onclick = () => {
+  const pass = document.getElementById("admin-pass").value;
+  socket.emit("adminLogin", pass);
+};
+
+socket.on("adminAuthorized", (success) => {
+  if (success) {
+    document.getElementById("admin-login").style.display = "none";
+    document.getElementById("admin-console").style.display = "block";
+  } else {
+    alert("Wrong password.");
+  }
+});
+
+// ===== ADMIN USER LIST =====
+socket.on("adminUserList", (users) => {
+  const list = document.getElementById("admin-user-list");
+  list.innerHTML = "";
+  users.forEach(u => {
+    const li = document.createElement("li");
+    li.textContent = u.name;
+    li.onclick = () => socket.emit("kickUser", u.name);
+    list.appendChild(li);
   });
 });
 
-// ---- ADD MESSAGE ----
-function addMessageToChat(msg) {
-  const div = document.createElement('div');
-  if (msg.username === myUsername) div.classList.add('my-message');
-
-  const time = formatTime(msg.time);
-  div.textContent = `[${time}] ${msg.username}: ${msg.text}`;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// ---- ADD IMAGE MESSAGE ----
-function addImageToChat(msg) {
-  const div = document.createElement('div');
-  if (msg.username === myUsername) div.classList.add('my-message');
-
-  const time = formatTime(msg.time);
-  div.innerHTML = `<strong>[${time}] ${msg.username}:</strong><br><img src="${msg.data}" style="max-width:200px; max-height:200px;">`;
-
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// ---- FORMAT TIME ----
-function formatTime(timestamp) {
-  const date = new Date(timestamp);
-  const h = String(date.getHours()).padStart(2,"0");
-  const m = String(date.getMinutes()).padStart(2,"0");
-  return `${h}:${m}`;
-}
+// ===== CLEAR CHAT BUTTON =====
+document.getElementById("clear-chat").onclick = () => {
+  socket.emit("clearChat");
+};

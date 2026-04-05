@@ -7,90 +7,67 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const ADMIN_PASSWORD = "changeme"; // <<< set your password
-let connectedUsers = new Map();
-let adminSockets = new Set();
-let messages = []; // last 10 messages
+const PORT = process.env.PORT || 3000;
 
-// Serve public folder
+// ===== DATA =====
+let users = {}; // socket.id -> username
+let messageHistory = [];
+const MESSAGE_LIMIT = 10;
+
+// ===== STATIC =====
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
+// ===== SOCKET =====
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  // Send last 10 messages
-  socket.emit("messageHistory", messages);
+  // ===== JOIN =====
+  socket.on("join", (username) => {
+    if (!username) return;
 
-  // Set username
-  socket.on("setName", (name) => {
-    connectedUsers.set(socket.id, { id: socket.id, name });
-    io.emit("userList", Array.from(connectedUsers.values()));
-    broadcastAdminUsers();
+    users[socket.id] = username;
+
+    // send history
+    socket.emit("messageHistory", messageHistory);
+
+    // update users
+    io.emit("userList", Object.values(users));
   });
 
-  // Receive message
-  socket.on("chatMessage", (data) => {
-    const entry = {
-      user: data.user,
-      message: data.message,
-      time: data.time
+  // ===== MESSAGE =====
+  socket.on("chatMessage", (msg) => {
+    const username = users[socket.id];
+
+    if (!username) return; // prevents undefined messages
+
+    const messageData = {
+      username,
+      msg,
+      time: new Date().toLocaleTimeString()
     };
 
-    messages.push(entry);
-    if (messages.length > 10) messages.shift();
-    io.emit("chatMessage", entry);
-  });
-
-  // ADMIN LOGIN
-  socket.on("adminLogin", (password) => {
-    if (password === ADMIN_PASSWORD) {
-      adminSockets.add(socket.id);
-      socket.emit("adminAuthorized", true);
-      broadcastAdminUsers();
-      console.log("Admin connected");
-    } else {
-      socket.emit("adminAuthorized", false);
+    messageHistory.push(messageData);
+    if (messageHistory.length > MESSAGE_LIMIT) {
+      messageHistory.shift();
     }
+
+    io.emit("chatMessage", messageData);
   });
 
-  function broadcastAdminUsers() {
-    const users = Array.from(connectedUsers.values());
-    adminSockets.forEach(id => {
-      io.to(id).emit("adminUserList", users);
-    });
-  }
-
-  // Kick user
-  socket.on("kickUser", (username) => {
-    const entry = [...connectedUsers.entries()]
-      .find(([id, user]) => user.name === username);
-
-    if (entry) {
-      const [id] = entry;
-      io.to(id).emit("kicked");
-      io.sockets.sockets.get(id)?.disconnect();
-    }
-  });
-
-  // Clear chat
+  // ===== CLEAR CHAT (ADMIN) =====
   socket.on("clearChat", () => {
-    messages = [];
-    io.emit("chatCleared");
+    messageHistory = [];
+    io.emit("clearChat");
   });
 
-  // Disconnect
+  // ===== DISCONNECT =====
   socket.on("disconnect", () => {
-    connectedUsers.delete(socket.id);
-    adminSockets.delete(socket.id);
-    io.emit("userList", Array.from(connectedUsers.values()));
-    broadcastAdminUsers();
+    delete users[socket.id];
+    io.emit("userList", Object.values(users));
   });
 });
 
-server.listen(3000, () => {
-  console.log("Server running on port 3000");
+// ===== START =====
+server.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
 });

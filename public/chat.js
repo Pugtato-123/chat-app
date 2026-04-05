@@ -18,11 +18,11 @@ document.getElementById("setNameBtn").onclick = () => {
   username = name;
   socket.emit("join", username);
 
-  // Lock name input
+  // lock name input
   document.getElementById("nameInput").disabled = true;
   document.getElementById("setNameBtn").disabled = true;
 
-  // Enable chat
+  // enable chat
   input.disabled = false;
   sendBtn.disabled = false;
 };
@@ -54,28 +54,12 @@ socket.on("chatMessage", (data) => {
 
   div.innerHTML = `
     <strong>${data.username}</strong>
-    <span class="time">${data.time}</span><br>
-    ${data.msg}
+    <span class="time">${data.time}</span>
+    <div>${data.msg}</div>
   `;
 
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
-
-socket.on("chatMessage", (msg) => {
-    const username = users[socket.id];
-
-    if (!username) return; // prevents undefined
-
-    const messageData = {
-        username: username,
-        msg: msg,
-        time: new Date().toLocaleTimeString()
-    };
-
-    messageHistory.push(messageData);
-    if (messageHistory.length > 10) messageHistory.shift();
-
-    io.emit("chatMessage", messageData);
 });
 
 // ===== HISTORY =====
@@ -87,10 +71,10 @@ socket.on("messageHistory", (history) => {
     div.classList.add("msg");
 
     div.innerHTML = `
-      <strong>${data.username}</strong>
-      <span class="time">${data.time}</span><br>
-      ${data.msg}
-    `;
+  <strong>${data.username}</strong>
+  <span class="time">${data.time}</span>
+  <div>${data.msg}</div>
+`;
 
     messages.appendChild(div);
   });
@@ -121,7 +105,7 @@ socket.on("kicked", () => {
   location.reload();
 });
 
-// ===== ADMIN PANEL SHORTCUT =====
+// ===== ADMIN SHORTCUT =====
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") {
     document.getElementById("admin-login").style.display = "block";

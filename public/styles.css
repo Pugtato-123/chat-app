@@ -1,121 +1,136 @@
+/* ===== BASE ===== */
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-  background: #f5f7fb;
   margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: #0f172a; /* dark background */
+  color: #e5e7eb;
 }
 
+/* ===== LAYOUT ===== */
 #app {
-  max-width: 1000px;
-  margin: 24px auto;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
-  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
+/* ===== TOP BAR ===== */
 header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #eee;
+  padding: 12px 16px;
+  background: #020617;
+  border-bottom: 1px solid #1e293b;
+  font-size: 16px;
+  font-weight: 600;
 }
 
+/* ===== NAME INPUT ===== */
 .controls {
   display: flex;
   gap: 8px;
-  padding: 12px 20px;
-  align-items: center;
+  padding: 10px 16px;
+  background: #020617;
+  border-bottom: 1px solid #1e293b;
 }
 
 .controls input {
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
+  padding: 6px 8px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  color: white;
 }
 
 .controls button {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 0;
-  background: #2b6cb0;
+  padding: 6px 10px;
+  background: #1d4ed8;
+  border: none;
   color: white;
   cursor: pointer;
 }
 
+.controls button:hover {
+  background: #1e40af;
+}
+
+/* ===== MAIN ===== */
 .main {
   display: flex;
+  flex: 1;
 }
 
+/* ===== SIDEBAR ===== */
 .sidebar {
-  width: 180px;
-  padding: 12px;
-  border-right: 1px solid #f0f0f0;
+  width: 220px;
+  background: #020617;
+  border-right: 1px solid #1e293b;
+  padding: 10px;
 }
 
+.sidebar h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+#userList li {
+  list-style: none;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+/* ===== CHAT AREA ===== */
 .chat {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
+/* ===== MESSAGES ===== */
 .messages {
-  padding: 12px;
-  height: 420px;
-  overflow: auto;
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
 }
 
 .msg {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+  line-height: 1.4;
 }
 
+.msg strong {
+  color: #60a5fa;
+  font-weight: 500;
+}
+
+.time {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: 6px;
+}
+
+/* ===== INPUT ===== */
 .composer {
   display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-top: 1px solid #eee;
+  padding: 10px;
+  border-top: 1px solid #1e293b;
+  background: #020617;
 }
 
 .composer input {
   flex: 1;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-}
-
-.composer button {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 0;
-  background: #2b6cb0;
+  padding: 8px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
   color: white;
 }
 
-.time {
-  color: #999;
-  font-size: 0.8em;
+.composer button {
   margin-left: 8px;
+  padding: 8px 12px;
+  background: #1d4ed8;
+  border: none;
+  color: white;
+  cursor: pointer;
 }
 
-.msg {
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  background: #f1f5f9;
-  border-radius: 6px;
-}
-
-.msg strong {
-  color: #2b6cb0;
-}
-
-.composer button,
-.controls button {
-  background: #4f46e5;
-  transition: 0.2s;
-}
-
-.composer button:hover,
-.controls button:hover {
-  background: #4338ca;
-}
-
-.messages {
-  background: #fafafa;
+.composer button:hover {
+  background: #1e40af;
 }

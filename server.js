@@ -1,7 +1,15 @@
+const { Pool } = require("pg");
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false } // required for Render
+});
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
@@ -9,14 +17,11 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// ===== ACCOUNTS =====
-const accounts = {
-  "Johno": { password: "Pugtater", admin: true },
-  "user": { password: "1111", admin: false }
-};
+// ===== LOAD ACCOUNTS =====
+let accounts = JSON.parse(fs.readFileSync("accounts.json", "utf8"));
 
 // ===== DATA =====
-let users = {}; // socket.id -> username
+let users = {};
 let messageHistory = [];
 const MESSAGE_LIMIT = 10;
 
@@ -25,24 +30,44 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // ===== SOCKET =====
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+
+  // ===== REGISTER =====
+socket.on("register", async ({ username, password }, callback) => {
+  try {
+    await pool.query(
+      "INSERT INTO users (username, password) VALUES ($1, $2)",
+      [username, password]
+    );
+
+    callback({ success: true });
+  } catch (err) {
+    callback({ success: false, message: "User exists" });
+  }
+});
 
   // ===== LOGIN =====
-  socket.on("login", ({ username, password }, callback) => {
-    if (!accounts[username] || accounts[username].password !== password) {
-      return callback({ success: false });
-    }
+socket.on("login", async ({ username, password }, callback) => {
+  const res = await pool.query(
+    "SELECT * FROM users WHERE username = $1",
+    [username]
+  );
 
-    users[socket.id] = username;
+  const user = res.rows[0];
 
-    socket.emit("messageHistory", messageHistory);
-    io.emit("userList", Object.values(users));
+  if (!user || user.password !== password) {
+    return callback({ success: false });
+  }
 
-    callback({
-      success: true,
-      admin: accounts[username].admin
-    });
+  users[socket.id] = user.username;
+
+  socket.emit("messageHistory", messageHistory);
+  io.emit("userList", Object.values(users));
+
+  callback({
+    success: true,
+    admin: user.admin
   });
+});
 
   // ===== MESSAGE =====
   socket.on("chatMessage", (msg) => {
@@ -63,7 +88,7 @@ io.on("connection", (socket) => {
     io.emit("chatMessage", messageData);
   });
 
-  // ===== ADMIN: CLEAR CHAT =====
+  // ===== ADMIN =====
   socket.on("clearChat", () => {
     const username = users[socket.id];
     if (!accounts[username]?.admin) return;
@@ -72,7 +97,6 @@ io.on("connection", (socket) => {
     io.emit("clearChat");
   });
 
-  // ===== ADMIN: KICK =====
   socket.on("kickUser", (targetUsername) => {
     const username = users[socket.id];
     if (!accounts[username]?.admin) return;
@@ -87,7 +111,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ===== DISCONNECT =====
   socket.on("disconnect", () => {
     delete users[socket.id];
     io.emit("userList", Object.values(users));
@@ -97,3 +120,14 @@ io.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });
+
+(async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE,
+      password TEXT,
+      admin BOOLEAN DEFAULT false
+    )
+  `);
+})();

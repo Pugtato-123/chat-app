@@ -8,35 +8,56 @@ const input = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
 
 // ===== LOGIN =====
-document.getElementById("setNameBtn").onclick = () => {
-  const name = document.getElementById("nameInput").value.trim();
-  const password = prompt("Enter password:");
+const usernameInput = document.getElementById("usernameInput");
+const passwordInput = document.getElementById("passwordInput");
+const loginBtn = document.getElementById("loginBtn");
+const registerBtn = document.getElementById("registerBtn");
 
-  if (!name || !password) {
+loginBtn.onclick = () => {
+  const usernameVal = usernameInput.value.trim();
+  const passwordVal = passwordInput.value.trim();
+
+  if (!usernameVal || !passwordVal) {
     alert("Enter username and password");
     return;
   }
 
-  socket.emit("login", { username: name, password }, (res) => {
+  socket.emit("login", { username: usernameVal, password: passwordVal }, (res) => {
     if (!res.success) {
       alert("Invalid login");
       return;
     }
 
-    username = name;
+    username = usernameVal;
     isAdmin = res.admin;
 
-    // lock login
-    document.getElementById("nameInput").disabled = true;
-    document.getElementById("setNameBtn").disabled = true;
+    // lock UI
+    usernameInput.disabled = true;
+    passwordInput.disabled = true;
+    loginBtn.disabled = true;
+    registerBtn.disabled = true;
 
-    // enable chat
     input.disabled = false;
     sendBtn.disabled = false;
+  });
+};
 
-    if (isAdmin) {
-      alert("Logged in as admin");
+registerBtn.onclick = () => {
+  const usernameVal = usernameInput.value.trim();
+  const passwordVal = passwordInput.value.trim();
+
+  if (!usernameVal || !passwordVal) {
+    alert("Enter username and password");
+    return;
+  }
+
+  socket.emit("register", { username: usernameVal, password: passwordVal }, (res) => {
+    if (!res.success) {
+      alert(res.message || "Failed");
+      return;
     }
+
+    alert("Account created. You can now log in.");
   });
 };
 
@@ -143,3 +164,19 @@ document.addEventListener("keydown", (e) => {
 document.getElementById("clear-chat").onclick = () => {
   socket.emit("clearChat");
 };
+
+function register() {
+  const username = document.getElementById("nameInput").value.trim();
+  const password = prompt("Create password:");
+
+  if (!username || !password) return;
+
+  socket.emit("register", { username, password }, (res) => {
+    if (!res.success) {
+      alert(res.message);
+      return;
+    }
+
+    alert("Account created!");
+  });
+}

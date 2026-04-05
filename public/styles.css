@@ -143,3 +143,30 @@ header {
 .composer button:hover {
   background: #1e40af;
 }
+
+.controls {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #020617;
+  border-bottom: 1px solid #1e293b;
+}
+
+.controls input {
+  padding: 6px 8px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  color: white;
+}
+
+.controls button {
+  padding: 6px 10px;
+  background: #1d4ed8;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+.controls button:hover {
+  background: #1e40af;
+}

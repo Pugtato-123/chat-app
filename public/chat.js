@@ -1,38 +1,48 @@
 const socket = io();
 
 let username = null;
+let isAdmin = false;
 
 const messages = document.getElementById("messages");
 const input = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
 
-// ===== SET USERNAME =====
+// ===== LOGIN =====
 document.getElementById("setNameBtn").onclick = () => {
   const name = document.getElementById("nameInput").value.trim();
+  const password = prompt("Enter password:");
 
-  if (!name) {
-    alert("Enter a name first");
+  if (!name || !password) {
+    alert("Enter username and password");
     return;
   }
 
-  username = name;
-  socket.emit("join", username);
+  socket.emit("login", { username: name, password }, (res) => {
+    if (!res.success) {
+      alert("Invalid login");
+      return;
+    }
 
-  // lock name input
-  document.getElementById("nameInput").disabled = true;
-  document.getElementById("setNameBtn").disabled = true;
+    username = name;
+    isAdmin = res.admin;
 
-  // enable chat
-  input.disabled = false;
-  sendBtn.disabled = false;
+    // lock login
+    document.getElementById("nameInput").disabled = true;
+    document.getElementById("setNameBtn").disabled = true;
+
+    // enable chat
+    input.disabled = false;
+    sendBtn.disabled = false;
+
+    if (isAdmin) {
+      alert("Logged in as admin");
+    }
+  });
 };
 
-// ===== SEND MESSAGE =====
+// ===== SEND =====
 function sendMessage() {
-  if (!username) {
-    alert("Set your name first");
-    return;
-  }
+  if (!username) return alert("Login first");
 
   const msg = input.value.trim();
   if (!msg) return;
@@ -47,7 +57,7 @@ input.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
 
-// ===== RECEIVE MESSAGE =====
+// ===== RECEIVE =====
 socket.on("chatMessage", (data) => {
   const div = document.createElement("div");
   div.classList.add("msg");
@@ -71,18 +81,16 @@ socket.on("messageHistory", (history) => {
     div.classList.add("msg");
 
     div.innerHTML = `
-  <strong>${data.username}</strong>
-  <span class="time">${data.time}</span>
-  <div>${data.msg}</div>
-`;
+      <strong>${data.username}</strong>
+      <span class="time">${data.time}</span>
+      <div>${data.msg}</div>
+    `;
 
     messages.appendChild(div);
   });
-
-  messages.scrollTop = messages.scrollHeight;
 });
 
-// ===== USER LIST =====
+// ===== USERS =====
 socket.on("userList", (users) => {
   const list = document.getElementById("userList");
   list.innerHTML = "";
@@ -91,6 +99,24 @@ socket.on("userList", (users) => {
     const li = document.createElement("li");
     li.textContent = u;
     list.appendChild(li);
+  });
+
+  // update admin panel list
+  const adminList = document.getElementById("admin-user-list");
+  adminList.innerHTML = "";
+
+  users.forEach((u) => {
+    const li = document.createElement("li");
+    li.textContent = u;
+
+    if (isAdmin) {
+      const btn = document.createElement("button");
+      btn.textContent = "Kick";
+      btn.onclick = () => socket.emit("kickUser", u);
+      li.appendChild(btn);
+    }
+
+    adminList.appendChild(li);
   });
 });
 
@@ -105,9 +131,15 @@ socket.on("kicked", () => {
   location.reload();
 });
 
-// ===== ADMIN SHORTCUT =====
+// ===== ADMIN PANEL =====
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") {
-    document.getElementById("admin-login").style.display = "block";
+    if (!isAdmin) return alert("Not admin");
+
+    document.getElementById("admin-console").style.display = "block";
   }
 });
+
+document.getElementById("clear-chat").onclick = () => {
+  socket.emit("clearChat");
+};

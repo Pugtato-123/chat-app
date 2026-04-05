@@ -7,12 +7,10 @@
 <body>
 
 <div id="app">
-
   <header>
     <h2>Chat App</h2>
   </header>
 
-  <!-- LOGIN / REGISTER -->
   <div class="controls">
     <input id="usernameInput" placeholder="Username">
     <input id="passwordInput" type="password" placeholder="Password">
@@ -20,51 +18,23 @@
     <button id="registerBtn">Register</button>
   </div>
 
-  <!-- AVATAR CHANGE (always visible) -->
-  <div id="avatar-change">
-    <input id="avatarURLInput" placeholder="Enter new avatar URL">
-    <button id="changeAvatarBtn">Change Avatar</button>
-  </div>
-
   <div class="main">
-
     <div class="sidebar">
       <h3>Users</h3>
       <ul id="userList"></ul>
     </div>
 
     <div class="chat">
-
       <div id="messages" class="messages"></div>
-
       <div class="composer">
         <input id="msgInput" placeholder="Type a message..." disabled>
         <button id="sendBtn" disabled>Send</button>
       </div>
-
     </div>
-
   </div>
-
-</div>
-
-<!-- ADMIN LOGIN -->
-<div id="admin-login" style="display:none; margin-top:20px;">
-  <h3>Admin Login</h3>
-  <input id="admin-pass" type="password" placeholder="Admin Password">
-  <button id="admin-login-btn">Login</button>
-</div>
-
-<!-- ADMIN CONSOLE -->
-<div id="admin-console" style="display:none; margin-top:20px;">
-  <h3>Admin Console</h3>
-  <button id="clear-chat">Clear Chat</button>
-  <h4>Users</h4>
-  <ul id="admin-user-list"></ul>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="chat.js"></script>
-
 </body>
 </html>

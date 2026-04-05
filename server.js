@@ -16,14 +16,17 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// ===== CREATE TABLES (AUTO) =====
+// ===== CREATE TABLES =====
 (async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE,
       password TEXT,
-      admin BOOLEAN DEFAULT false
+      admin BOOLEAN DEFAULT false,
+      avatar TEXT,
+      role TEXT DEFAULT 'user',
+      color TEXT DEFAULT '#93c5fd'
     );
   `);
 
@@ -38,7 +41,7 @@ const pool = new Pool({
 })();
 
 // ===== DATA =====
-let users = {}; // socket.id -> username
+let users = {};
 
 // ===== STATIC =====
 app.use(express.static(path.join(__dirname, "public")));
@@ -53,9 +56,8 @@ io.on("connection", (socket) => {
         "INSERT INTO users (username, password) VALUES ($1, $2)",
         [username, password]
       );
-
       callback({ success: true });
-    } catch (err) {
+    } catch {
       callback({ success: false, message: "User exists" });
     }
   });
@@ -75,7 +77,7 @@ io.on("connection", (socket) => {
 
     users[socket.id] = user.username;
 
-    // ===== LOAD MESSAGE HISTORY =====
+    // load messages
     const result = await pool.query(
       "SELECT * FROM messages ORDER BY id ASC"
     );
@@ -83,7 +85,10 @@ io.on("connection", (socket) => {
     const history = result.rows.map(row => ({
       username: row.username,
       msg: row.message,
-      time: row.time
+      time: row.time,
+      avatar: null,
+      role: "user",
+      color: "#93c5fd"
     }));
 
     socket.emit("messageHistory", history);
@@ -92,8 +97,56 @@ io.on("connection", (socket) => {
 
     callback({
       success: true,
-      admin: user.admin
+      admin: user.admin,
+      avatar: user.avatar,
+      role: user.role,
+      color: user.color
     });
+  });
+
+  // ===== SET AVATAR =====
+  socket.on("setAvatar", async (url) => {
+    const username = users[socket.id];
+    if (!username) return;
+
+    await pool.query(
+      "UPDATE users SET avatar = $1 WHERE username = $2",
+      [url, username]
+    );
+  });
+
+  // ===== SET ROLE (ADMIN ONLY) =====
+  socket.on("setRole", async ({ target, role }) => {
+    const username = users[socket.id];
+
+    const res = await pool.query(
+      "SELECT admin FROM users WHERE username = $1",
+      [username]
+    );
+
+    if (!res.rows[0]?.admin) return;
+
+    await pool.query(
+      "UPDATE users SET role = $1 WHERE username = $2",
+      [role, target]
+    );
+  });
+
+  // ===== SET COLOR (ADMIN ONLY) =====
+  socket.on("setColor", async ({ target, color }) => {
+    const username = users[socket.id];
+
+    const res = await pool.query(
+      "SELECT admin FROM users WHERE username = $1",
+      [username]
+    );
+
+    if (!res.rows[0]?.admin) return;
+
+    await pool.query(
+      "UPDATE users SET color = $1 WHERE username = $2",
+      [color, target]
+    );
   });
 
   // ===== SEND MESSAGE =====
@@ -103,32 +156,38 @@ io.on("connection", (socket) => {
 
     const time = new Date().toLocaleTimeString();
 
+    const userRes = await pool.query(
+      "SELECT avatar, role, color FROM users WHERE username = $1",
+      [username]
+    );
+
+    const { avatar, role, color } = userRes.rows[0];
+
     const messageData = {
       username,
       msg,
-      time
+      time,
+      avatar,
+      role,
+      color
     };
 
-    // save message
     await pool.query(
       "INSERT INTO messages (username, message, time) VALUES ($1, $2, $3)",
       [username, msg, time]
     );
 
-    // keep last 100 messages
     await pool.query(`
       DELETE FROM messages
       WHERE id NOT IN (
-        SELECT id FROM messages
-        ORDER BY id DESC
-        LIMIT 100
+        SELECT id FROM messages ORDER BY id DESC LIMIT 100
       )
     `);
 
     io.emit("chatMessage", messageData);
   });
 
-  // ===== ADMIN: CLEAR CHAT =====
+  // ===== CLEAR CHAT =====
   socket.on("clearChat", async () => {
     const username = users[socket.id];
 
@@ -140,11 +199,10 @@ io.on("connection", (socket) => {
     if (!res.rows[0]?.admin) return;
 
     await pool.query("DELETE FROM messages");
-
     io.emit("clearChat");
   });
 
-  // ===== ADMIN: KICK =====
+  // ===== KICK =====
   socket.on("kickUser", async (targetUsername) => {
     const username = users[socket.id];
 
@@ -165,14 +223,12 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ===== DISCONNECT =====
   socket.on("disconnect", () => {
     delete users[socket.id];
     io.emit("userList", Object.values(users));
   });
 });
 
-// ===== START =====
 server.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });

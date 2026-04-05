@@ -2,68 +2,80 @@ const socket = io();
 
 let username = null;
 let isAdmin = false;
+let avatar = null;
+let role = "user";
+let color = "#93c5fd";
 
 const messages = document.getElementById("messages");
 const input = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
 
-// ===== LOGIN =====
 const usernameInput = document.getElementById("usernameInput");
 const passwordInput = document.getElementById("passwordInput");
 const loginBtn = document.getElementById("loginBtn");
 const registerBtn = document.getElementById("registerBtn");
 
+// ===== LOGIN =====
 loginBtn.onclick = () => {
-  const usernameVal = usernameInput.value.trim();
-  const passwordVal = passwordInput.value.trim();
+  const u = usernameInput.value.trim();
+  const p = passwordInput.value.trim();
 
-  if (!usernameVal || !passwordVal) {
-    alert("Enter username and password");
-    return;
-  }
+  if (!u || !p) return alert("Enter username + password");
 
-  socket.emit("login", { username: usernameVal, password: passwordVal }, (res) => {
-    if (!res.success) {
-      alert("Invalid login");
-      return;
-    }
+  socket.emit("login", { username: u, password: p }, (res) => {
+    if (!res.success) return alert("Invalid login");
 
-    username = usernameVal;
+    username = u;
     isAdmin = res.admin;
+    avatar = res.avatar;
+    role = res.role;
+    color = res.color;
 
-    // lock UI
-    usernameInput.disabled = true;
-    passwordInput.disabled = true;
-    loginBtn.disabled = true;
-    registerBtn.disabled = true;
+    document.querySelector(".controls").style.display = "none";
+
+    const header = document.querySelector("header");
+
+    const acc = document.createElement("div");
+    acc.style.marginLeft = "auto";
+    acc.style.display = "flex";
+    acc.style.alignItems = "center";
+    acc.style.gap = "10px";
+
+    const name = document.createElement("span");
+    name.textContent = username;
+    name.style.color = color;
+
+    const img = document.createElement("img");
+    img.src = avatar || "https://via.placeholder.com/32";
+    img.style.width = "32px";
+    img.style.height = "32px";
+    img.style.borderRadius = "50%";
+
+    acc.appendChild(name);
+    acc.appendChild(img);
+    header.appendChild(acc);
 
     input.disabled = false;
     sendBtn.disabled = false;
   });
 };
 
+// ===== REGISTER =====
 registerBtn.onclick = () => {
-  const usernameVal = usernameInput.value.trim();
-  const passwordVal = passwordInput.value.trim();
+  const u = usernameInput.value.trim();
+  const p = passwordInput.value.trim();
 
-  if (!usernameVal || !passwordVal) {
-    alert("Enter username and password");
-    return;
-  }
+  if (!u || !p) return alert("Enter username + password");
 
-  socket.emit("register", { username: usernameVal, password: passwordVal }, (res) => {
-    if (!res.success) {
-      alert(res.message || "Failed");
-      return;
-    }
-
-    alert("Account created. You can now log in.");
+  socket.emit("register", { username: u, password: p }, (res) => {
+    if (!res.success) return alert(res.message);
+    alert("Account created");
   });
 };
 
 // ===== SEND =====
 function sendMessage() {
-  if (!username) return alert("Login first");
+  if (!username) return;
 
   const msg = input.value.trim();
   if (!msg) return;
@@ -73,20 +85,34 @@ function sendMessage() {
 }
 
 sendBtn.onclick = sendMessage;
-
-input.addEventListener("keypress", (e) => {
+input.addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
 
 // ===== RECEIVE =====
 socket.on("chatMessage", (data) => {
+  const roleTag =
+    data.role === "admin"
+      ? "<span style='color:red;font-size:12px'>[ADMIN]</span>"
+      : data.role === "mod"
+      ? "<span style='color:lime;font-size:12px'>[MOD]</span>"
+      : "";
+
   const div = document.createElement("div");
   div.classList.add("msg");
 
   div.innerHTML = `
-    <strong>${data.username}</strong>
-    <span class="time">${data.time}</span>
-    <div>${data.msg}</div>
+    <div style="display:flex; gap:10px;">
+      <img src="${data.avatar || 'https://via.placeholder.com/32'}"
+           style="width:32px;height:32px;border-radius:50%;">
+      <div>
+        <strong style="color:${data.color}">
+          ${data.username} ${roleTag}
+        </strong>
+        <span class="time">${data.time}</span>
+        <div>${data.msg}</div>
+      </div>
+    </div>
   `;
 
   messages.appendChild(div);
@@ -97,14 +123,22 @@ socket.on("chatMessage", (data) => {
 socket.on("messageHistory", (history) => {
   messages.innerHTML = "";
 
-  history.forEach((data) => {
+  history.forEach(data => {
     const div = document.createElement("div");
     div.classList.add("msg");
 
     div.innerHTML = `
-      <strong>${data.username}</strong>
-      <span class="time">${data.time}</span>
-      <div>${data.msg}</div>
+      <div style="display:flex; gap:10px;">
+        <img src="${data.avatar || 'https://via.placeholder.com/32'}"
+             style="width:32px;height:32px;border-radius:50%;">
+        <div>
+          <strong style="color:${data.color}">
+            ${data.username}
+          </strong>
+          <span class="time">${data.time}</span>
+          <div>${data.msg}</div>
+        </div>
+      </div>
     `;
 
     messages.appendChild(div);
@@ -116,32 +150,14 @@ socket.on("userList", (users) => {
   const list = document.getElementById("userList");
   list.innerHTML = "";
 
-  users.forEach((u) => {
+  users.forEach(u => {
     const li = document.createElement("li");
     li.textContent = u;
     list.appendChild(li);
   });
-
-  // update admin panel list
-  const adminList = document.getElementById("admin-user-list");
-  adminList.innerHTML = "";
-
-  users.forEach((u) => {
-    const li = document.createElement("li");
-    li.textContent = u;
-
-    if (isAdmin) {
-      const btn = document.createElement("button");
-      btn.textContent = "Kick";
-      btn.onclick = () => socket.emit("kickUser", u);
-      li.appendChild(btn);
-    }
-
-    adminList.appendChild(li);
-  });
 });
 
-// ===== CLEAR CHAT =====
+// ===== CLEAR =====
 socket.on("clearChat", () => {
   messages.innerHTML = "";
 });
@@ -151,32 +167,3 @@ socket.on("kicked", () => {
   alert("You were kicked");
   location.reload();
 });
-
-// ===== ADMIN PANEL =====
-document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") {
-    if (!isAdmin) return alert("Not admin");
-
-    document.getElementById("admin-console").style.display = "block";
-  }
-});
-
-document.getElementById("clear-chat").onclick = () => {
-  socket.emit("clearChat");
-};
-
-function register() {
-  const username = document.getElementById("nameInput").value.trim();
-  const password = prompt("Create password:");
-
-  if (!username || !password) return;
-
-  socket.emit("register", { username, password }, (res) => {
-    if (!res.success) {
-      alert(res.message);
-      return;
-    }
-
-    alert("Account created!");
-  });
-}

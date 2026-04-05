@@ -93,3 +93,29 @@ header {
   font-size: 0.8em;
   margin-left: 8px;
 }
+
+.msg {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.msg strong {
+  color: #2b6cb0;
+}
+
+.composer button,
+.controls button {
+  background: #4f46e5;
+  transition: 0.2s;
+}
+
+.composer button:hover,
+.controls button:hover {
+  background: #4338ca;
+}
+
+.messages {
+  background: #fafafa;
+}

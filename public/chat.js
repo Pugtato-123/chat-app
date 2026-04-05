@@ -60,6 +60,22 @@ socket.on("chatMessage", (data) => {
 
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
+
+socket.on("chatMessage", (msg) => {
+    const username = users[socket.id];
+
+    if (!username) return; // prevents undefined
+
+    const messageData = {
+        username: username,
+        msg: msg,
+        time: new Date().toLocaleTimeString()
+    };
+
+    messageHistory.push(messageData);
+    if (messageHistory.length > 10) messageHistory.shift();
+
+    io.emit("chatMessage", messageData);
 });
 
 // ===== HISTORY =====

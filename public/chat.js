@@ -167,3 +167,22 @@ socket.on("kicked", () => {
   alert("You were kicked");
   location.reload();
 });
+
+const avatarInput = document.getElementById("avatarURLInput");
+const avatarBtn = document.getElementById("changeAvatarBtn");
+
+avatarBtn.onclick = () => {
+  const url = avatarInput.value.trim();
+  if (!url) return alert("Enter a valid URL");
+
+  socket.emit("setAvatar", url);
+
+  // Update top-right avatar immediately
+  const topRightImg = document.querySelector("header img");
+  if (topRightImg) topRightImg.src = url;
+
+  // Update local variable for future messages
+  avatar = url;
+
+  alert("Avatar updated!");
+};

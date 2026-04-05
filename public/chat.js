@@ -1,125 +1,113 @@
 const socket = io();
-let username = "";
+
+let username = null;
+
+const messages = document.getElementById("messages");
+const input = document.getElementById("msgInput");
+const sendBtn = document.getElementById("sendBtn");
 
 // ===== SET USERNAME =====
 document.getElementById("setNameBtn").onclick = () => {
-  username = document.getElementById("nameInput").value.trim();
-  if (!username) return;
-  socket.emit("setName", username);
-};
+  const name = document.getElementById("nameInput").value.trim();
 
-document.getElementById("nameInput").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") document.getElementById("setNameBtn").click();
-});
+  if (!name) {
+    alert("Enter a name first");
+    return;
+  }
+
+  username = name;
+  socket.emit("join", username);
+
+  // Lock name input
+  document.getElementById("nameInput").disabled = true;
+  document.getElementById("setNameBtn").disabled = true;
+
+  // Enable chat
+  input.disabled = false;
+  sendBtn.disabled = false;
+};
 
 // ===== SEND MESSAGE =====
-document.getElementById("sendBtn").onclick = () => {
-  const msg = document.getElementById("msgInput").value.trim();
+function sendMessage() {
+  if (!username) {
+    alert("Set your name first");
+    return;
+  }
+
+  const msg = input.value.trim();
   if (!msg) return;
 
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  socket.emit("chatMessage", { user: username, message: msg, time });
-  document.getElementById("msgInput").value = "";
-};
-
-document.getElementById("msgInput").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") document.getElementById("sendBtn").click();
-});
-
-// ===== DISPLAY MESSAGE =====
-function appendMessage(data) {
-  const div = document.createElement("div");
-
-  // Base message text
-  div.textContent = `[${data.time}] ${data.user}: ${data.message}`;
-
-  // Rainbow effect for "rainbow"
-  if (data.user.toLowerCase() === "rainbow") {
-    let i = 0;
-    const colors = ["red", "orange", "yellow", "green", "blue", "indigo", "violet"];
-    div.innerHTML = `[${data.time}] <span style="color:${colors[i]}">${data.user}</span>: ${data.message}`;
-    
-    setInterval(() => {
-      i = (i + 1) % colors.length;
-      div.innerHTML = `[${data.time}] <span style="color:${colors[i]}">${data.user}</span>: ${data.message}`;
-    }, 500);
-  }
-
-  // Cool effect for "bean"
-  if (data.user.toLowerCase() === "bean") {
-    div.style.color = "cyan";
-    div.style.fontWeight = "bold";
-    div.style.textShadow = "0 0 5px magenta, 0 0 10px blue";
-  }
-
-  document.getElementById("messages").appendChild(div);
-  document.getElementById("messages").scrollTop =
-    document.getElementById("messages").scrollHeight;
+  socket.emit("chatMessage", msg);
+  input.value = "";
 }
 
-socket.on("chatMessage", appendMessage);
-socket.on("messageHistory", (list) => {
-  document.getElementById("messages").innerHTML = "";
-  list.forEach(appendMessage);
+sendBtn.onclick = sendMessage;
+
+input.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
+
+// ===== RECEIVE MESSAGE =====
+socket.on("chatMessage", (data) => {
+  const div = document.createElement("div");
+  div.classList.add("msg");
+
+  div.innerHTML = `
+    <strong>${data.username}</strong>
+    <span class="time">${data.time}</span><br>
+    ${data.msg}
+  `;
+
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+});
+
+// ===== HISTORY =====
+socket.on("messageHistory", (history) => {
+  messages.innerHTML = "";
+
+  history.forEach((data) => {
+    const div = document.createElement("div");
+    div.classList.add("msg");
+
+    div.innerHTML = `
+      <strong>${data.username}</strong>
+      <span class="time">${data.time}</span><br>
+      ${data.msg}
+    `;
+
+    messages.appendChild(div);
+  });
+
+  messages.scrollTop = messages.scrollHeight;
 });
 
 // ===== USER LIST =====
 socket.on("userList", (users) => {
   const list = document.getElementById("userList");
   list.innerHTML = "";
-  users.forEach(u => {
+
+  users.forEach((u) => {
     const li = document.createElement("li");
-    li.textContent = u.name;
+    li.textContent = u;
     list.appendChild(li);
   });
+});
+
+// ===== CLEAR CHAT =====
+socket.on("clearChat", () => {
+  messages.innerHTML = "";
 });
 
 // ===== KICKED =====
 socket.on("kicked", () => {
-  alert("You were kicked by the admin.");
-  socket.disconnect();
+  alert("You were kicked");
+  location.reload();
 });
 
-// ===== CHAT CLEARED =====
-socket.on("chatCleared", () => {
-  document.getElementById("messages").innerHTML = "";
-});
-
-// ===== SECRET ADMIN ACCESS (CTRL+SHIFT+A) =====
+// ===== ADMIN PANEL SHORTCUT =====
 document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key === "A") {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") {
     document.getElementById("admin-login").style.display = "block";
   }
 });
-
-// ===== ADMIN LOGIN =====
-document.getElementById("admin-login-btn").onclick = () => {
-  const pass = document.getElementById("admin-pass").value;
-  socket.emit("adminLogin", pass);
-};
-
-socket.on("adminAuthorized", (success) => {
-  if (success) {
-    document.getElementById("admin-login").style.display = "none";
-    document.getElementById("admin-console").style.display = "block";
-  } else {
-    alert("Wrong password.");
-  }
-});
-
-// ===== ADMIN USER LIST =====
-socket.on("adminUserList", (users) => {
-  const list = document.getElementById("admin-user-list");
-  list.innerHTML = "";
-  users.forEach(u => {
-    const li = document.createElement("li");
-    li.textContent = u.name;
-    li.onclick = () => socket.emit("kickUser", u.name);
-    list.appendChild(li);
-  });
-});
-
-// ===== CLEAR CHAT BUTTON =====
-document.getElementById("clear-chat").onclick = () => {
-  socket.emit("clearChat");
-};

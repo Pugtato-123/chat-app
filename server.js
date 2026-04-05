@@ -62,60 +62,72 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ===== LOGIN =====
-  socket.on("login", async ({ username, password }, callback) => {
-    const res = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      [username]
-    );
+// ===== LOGIN =====
+socket.on("login", async ({ username, password }, callback) => {
+  const res = await pool.query(
+    "SELECT * FROM users WHERE username = $1",
+    [username]
+  );
 
-    const user = res.rows[0];
+  const user = res.rows[0];
 
-    if (!user || user.password !== password) {
-      return callback({ success: false });
-    }
+  if (!user || user.password !== password) {
+    return callback({ success: false });
+  }
 
-    users[socket.id] = user.username;
+  users[socket.id] = user.username;
 
-    // load messages
-    const result = await pool.query(
-      "SELECT * FROM messages ORDER BY id ASC"
-    );
+  // load last 100 messages
+  const result = await pool.query(
+    "SELECT * FROM messages ORDER BY id ASC"
+  );
 
-    const history = result.rows.map(row => ({
-      username: row.username,
-      msg: row.message,
-      time: row.time,
-      avatar: null,
-      role: "user",
-      color: "#93c5fd"
-    }));
+  // map messages to include current avatar, role, and color from users table
+  const history = await Promise.all(
+    result.rows.map(async (row) => {
+      const uRes = await pool.query(
+        "SELECT avatar, role, color FROM users WHERE username = $1",
+        [row.username]
+      );
 
-    socket.emit("messageHistory", history);
-    io.emit("userList", Object.values(users));
+      const uData = uRes.rows[0] || { avatar: null, role: "user", color: "#93c5fd" };
 
-    callback({
-      success: true,
-      admin: user.admin,
-      avatar: user.avatar,
-      role: user.role,
-      color: user.color
-    });
+      return {
+        username: row.username,
+        msg: row.message,
+        time: row.time,
+        avatar: uData.avatar,
+        role: uData.role,
+        color: uData.color
+      };
+    })
+  );
+
+  socket.emit("messageHistory", history);
+  io.emit("userList", Object.values(users));
+
+  callback({
+    success: true,
+    admin: user.admin,
+    avatar: user.avatar,
+    role: user.role,
+    color: user.color
   });
+});
 
   // ===== SET AVATAR =====
-  socket.on("setAvatar", async (url) => {
-    const username = users[socket.id];
-    if (!username) return;
+socket.on("setAvatar", async (url) => {
+  const username = users[socket.id];
+  if (!username) return;
 
-    await pool.query(
-      "UPDATE users SET avatar = $1 WHERE username = $2",
-      [url, username]
-    );
+  await pool.query(
+    "UPDATE users SET avatar = $1 WHERE username = $2",
+    [url, username]
+  );
 
-    // Emit update to everyone
-    io.emit("avatarChanged", { username, avatar: url });
-  });
+  // Notify everyone
+  io.emit("avatarChanged", { username, avatar: url });
+});
 
   // ===== SET ROLE (ADMIN ONLY) =====
   socket.on("setRole", async ({ target, role }) => {

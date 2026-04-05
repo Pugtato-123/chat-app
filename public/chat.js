@@ -60,6 +60,84 @@ loginBtn.onclick = () => {
   });
 };
 
+// ===== AFTER LOGIN =====
+loginBtn.onclick = () => {
+  const u = usernameInput.value.trim();
+  const p = passwordInput.value.trim();
+
+  if (!u || !p) return alert("Enter username + password");
+
+  socket.emit("login", { username: u, password: p }, (res) => {
+    if (!res.success) return alert("Invalid login");
+
+    username = u;
+    isAdmin = res.admin;
+    avatar = res.avatar;
+    role = res.role;
+    color = res.color;
+
+    // hide login/register controls
+    document.querySelector(".controls").style.display = "none";
+
+    // show account info
+    const header = document.querySelector("header");
+    const acc = document.createElement("div");
+    acc.style.marginLeft = "auto";
+    acc.style.display = "flex";
+    acc.style.alignItems = "center";
+    acc.style.gap = "10px";
+
+    const name = document.createElement("span");
+    name.textContent = username;
+    name.style.color = color;
+
+    const img = document.createElement("img");
+    img.src = avatar || "https://via.placeholder.com/32";
+    img.style.width = "32px";
+    img.style.height = "32px";
+    img.style.borderRadius = "50%";
+
+    acc.appendChild(name);
+    acc.appendChild(img);
+    header.appendChild(acc);
+
+    // ENABLE MESSAGES
+    input.disabled = false;
+    sendBtn.disabled = false;
+
+    // ===== AVATAR CHANGE INPUT =====
+    const avatarContainer = document.createElement("div");
+    avatarContainer.style.display = "flex";
+    avatarContainer.style.gap = "8px";
+    avatarContainer.style.marginLeft = "16px";
+    avatarContainer.style.alignItems = "center";
+
+    const avatarInput = document.createElement("input");
+    avatarInput.type = "text";
+    avatarInput.placeholder = "Avatar URL";
+    avatarInput.value = avatar || "";
+    avatarInput.style.padding = "4px 6px";
+
+    const avatarBtn = document.createElement("button");
+    avatarBtn.textContent = "Change Avatar";
+    avatarBtn.style.padding = "4px 8px";
+    avatarBtn.style.cursor = "pointer";
+
+    avatarBtn.onclick = () => {
+      const url = avatarInput.value.trim();
+      if (!url) return alert("Enter avatar URL");
+
+      socket.emit("setAvatar", url);
+      avatar = url;
+      img.src = url; // update top-right image
+    };
+
+    avatarContainer.appendChild(avatarInput);
+    avatarContainer.appendChild(avatarBtn);
+    header.appendChild(avatarContainer);
+  });
+};
+
 // ===== REGISTER =====
 registerBtn.onclick = () => {
   const u = usernameInput.value.trim();
@@ -199,4 +277,20 @@ socket.on("avatarChanged", ({ username: u, avatar: url }) => {
     const topRightImg = document.querySelector("header img");
     if (topRightImg) topRightImg.src = url;
   }
+});
+
+socket.on("avatarChanged", ({ username: u, avatar: newAvatar }) => {
+  // update top-right if it's you
+  if (u === username) {
+    document.querySelector("header img").src = newAvatar;
+  }
+
+  // update past messages
+  document.querySelectorAll(".msg").forEach(msgDiv => {
+    const strong = msgDiv.querySelector("strong");
+    if (strong && strong.textContent.includes(u)) {
+      const img = msgDiv.querySelector("img");
+      if (img) img.src = newAvatar;
+    }
+  });
 });

@@ -168,6 +168,7 @@ socket.on("kicked", () => {
   location.reload();
 });
 
+// ===== AVATAR CHANGE =====
 const avatarInput = document.getElementById("avatarURLInput");
 const avatarBtn = document.getElementById("changeAvatarBtn");
 
@@ -181,8 +182,21 @@ avatarBtn.onclick = () => {
   const topRightImg = document.querySelector("header img");
   if (topRightImg) topRightImg.src = url;
 
-  // Update local variable for future messages
   avatar = url;
-
-  alert("Avatar updated!");
 };
+
+// Update avatars for everyone in chat when changed
+socket.on("avatarChanged", ({ username: u, avatar: url }) => {
+  document.querySelectorAll(".msg").forEach(div => {
+    const strong = div.querySelector("strong");
+    if (strong && strong.textContent.includes(u)) {
+      div.querySelector("img").src = url;
+    }
+  });
+
+  // Update your top-right if it’s you
+  if (u === username) {
+    const topRightImg = document.querySelector("header img");
+    if (topRightImg) topRightImg.src = url;
+  }
+});

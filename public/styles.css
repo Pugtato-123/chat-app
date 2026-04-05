@@ -2,7 +2,7 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  background: #0f172a; /* dark background */
+  background: #0f172a;
   color: #e5e7eb;
 }
 
@@ -22,7 +22,7 @@ header {
   font-weight: 600;
 }
 
-/* ===== NAME INPUT ===== */
+/* ===== CONTROLS ===== */
 .controls {
   display: flex;
   gap: 8px;
@@ -47,6 +47,38 @@ header {
 }
 
 .controls button:hover {
+  background: #1e40af;
+}
+
+/* ===== AVATAR CHANGE ===== */
+#avatar-change {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #020617;
+  border-bottom: 1px solid #1e293b;
+  align-items: center;
+}
+
+#avatar-change input {
+  flex: 1;
+  padding: 6px 8px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  color: white;
+  border-radius: 4px;
+}
+
+#avatar-change button {
+  padding: 6px 10px;
+  background: #1d4ed8;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+#avatar-change button:hover {
   background: #1e40af;
 }
 
@@ -141,62 +173,5 @@ header {
 }
 
 .composer button:hover {
-  background: #1e40af;
-}
-
-.controls {
-  display: flex;
-  gap: 8px;
-  padding: 10px 16px;
-  background: #020617;
-  border-bottom: 1px solid #1e293b;
-}
-
-.controls input {
-  padding: 6px 8px;
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  color: white;
-}
-
-.controls button {
-  padding: 6px 10px;
-  background: #1d4ed8;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.controls button:hover {
-  background: #1e40af;
-}
-
-/* ===== AVATAR CHANGE INPUT ===== */
-#avatar-change {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-  margin-top: 8px; /* spacing below login/register inputs */
-}
-
-#avatar-change input {
-  flex: 1;
-  padding: 6px 8px;
-  background: #0f172a; /* matches other inputs */
-  border: 1px solid #1e293b;
-  color: white;
-  border-radius: 4px;
-}
-
-#avatar-change button {
-  padding: 6px 10px;
-  background: #1d4ed8; /* matches existing buttons */
-  border: none;
-  color: white;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-#avatar-change button:hover {
   background: #1e40af;
 }

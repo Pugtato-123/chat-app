@@ -34,10 +34,8 @@ loginBtn.onclick = () => {
 
     username = u;
 
-    // hide login
     document.querySelector(".controls").style.display = "none";
 
-    // apply saved settings
     document.body.className = "";
     document.body.classList.add("font-" + (res.font || "default"));
     document.body.classList.add("theme-" + (res.theme || "macchiato"));
@@ -92,26 +90,36 @@ function sendMessage() {
   const msg = input.value.trim();
   if (!msg) return;
 
+  // slash commands
+  if (msg.startsWith("/")) {
+    const args = msg.split(" ");
+
+    if (args[0] === "/clear") socket.emit("clearChat");
+    if (args[0] === "/kick") socket.emit("kickUser", args[1]);
+
+    input.value = "";
+    return;
+  }
+
   socket.emit("chatMessage", msg);
   input.value = "";
 }
 
-// ENTER SEND
 input.addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
 
-// ===== RECEIVE MESSAGE (GROUPING + AUTOSCROLL FIX) =====
-socket.on("chatMessage", (data) => {
+// ===== RENDER FUNCTION (NEW) =====
+function renderMessage(data, isHistory = false) {
   const isNearBottom =
     messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50;
 
-  const now = Date.now();
+  const msgTime = new Date(data.time).getTime();
 
   if (
     lastMsg &&
     lastMsg.username === data.username &&
-    now - lastMsg.time < 120000
+    msgTime - lastMsg.time < 120000
   ) {
     const line = document.createElement("div");
     line.innerHTML = data.msg;
@@ -153,26 +161,34 @@ socket.on("chatMessage", (data) => {
 
     lastMsg = {
       username: data.username,
-      time: now,
+      time: msgTime,
       text: textDiv
     };
   }
 
-  if (isNearBottom) {
+  if (!isHistory && isNearBottom) {
     requestAnimationFrame(() => {
       messages.scrollTop = messages.scrollHeight;
     });
   }
+}
+
+// ===== LIVE MESSAGES =====
+socket.on("chatMessage", (data) => {
+  renderMessage(data);
 });
 
-// ===== MESSAGE HISTORY =====
+// ===== FIXED HISTORY =====
 socket.on("messageHistory", (history) => {
   messages.innerHTML = "";
   lastMsg = null;
 
   history.forEach(data => {
-    socket.emit("chatMessage", data.msg);
+    renderMessage(data, true);
   });
+
+  // scroll to bottom ONCE after load
+  messages.scrollTop = messages.scrollHeight;
 });
 
 // ===== USER LIST =====
@@ -192,7 +208,6 @@ socket.on("userList", (users) => {
 
     li.appendChild(img);
     li.appendChild(name);
-
     list.appendChild(li);
   });
 });
@@ -229,7 +244,7 @@ uploadInput.onchange = async () => {
   uploadInput.value = "";
 };
 
-// ===== SETTINGS SAVE =====
+// ===== SETTINGS =====
 function saveSettings() {
   const avatar = document.getElementById("avatarInput").value;
   const color = document.getElementById("colorInput").value;

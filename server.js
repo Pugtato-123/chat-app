@@ -78,10 +78,10 @@ app.post("/upload", upload.single("image"), (req, res) => {
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
-// ===== SOCKET CONNECTION =====
+// ===== SOCKET =====
 io.on("connection", (socket) => {
 
-  // ===== REGISTER =====
+  // REGISTER
   socket.on("register", async ({ username, password }, cb) => {
     try {
       const hash = await bcrypt.hash(password, 10);
@@ -95,7 +95,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ===== LOGIN =====
+  // LOGIN
   socket.on("login", async ({ username, password }, cb) => {
     const res = await pool.query(
       "SELECT * FROM users WHERE username=$1",
@@ -144,7 +144,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ===== SETTINGS =====
+  // SETTINGS
   socket.on("setAvatar", async (url) => {
     const u = users[socket.id];
     if (!u) return;
@@ -169,30 +169,24 @@ io.on("connection", (socket) => {
     await pool.query("UPDATE users SET theme=$1 WHERE username=$2", [theme, u]);
   });
 
-  // ===== CHAT MESSAGE =====
+  // MESSAGE
   socket.on("chatMessage", async (msg) => {
     const u = users[socket.id];
     if (!u) return;
 
     const time = new Date().toISOString();
+
     const userRes = await pool.query(
-      "SELECT avatar, role, color FROM users WHERE username=$1",
+      "SELECT avatar, role FROM users WHERE username=$1",
       [u]
     );
+
     const role = userRes.rows[0]?.role;
 
-    // --- ADMIN COMMANDS ---
+    // COMMANDS
     if (msg === "/clear" && role === "admin") {
       await pool.query("DELETE FROM messages");
-      io.emit("chatCleared"); // notify clients
-      return;
-    }
-
-    if (msg.startsWith("/kick ") && role === "admin") {
-      const target = msg.split(" ")[1];
-      for (const [id, name] of Object.entries(users)) {
-        if (name === target) io.sockets.sockets.get(id)?.disconnect();
-      }
+      io.emit("chatCleared");
       return;
     }
 
@@ -211,16 +205,27 @@ io.on("connection", (socket) => {
     io.emit("chatMessage", messageData);
   });
 
-  // ===== DISCONNECT =====
+  // CLEAR CHAT (button or /clear)
+  socket.on("clearChat", async () => {
+    const u = users[socket.id];
+    if (!u) return;
+
+    const res = await pool.query("SELECT role FROM users WHERE username=$1", [u]);
+    if (!res.rows[0] || res.rows[0].role !== "admin") return;
+
+    await pool.query("DELETE FROM messages");
+    io.emit("chatCleared");
+  });
+
+  // DISCONNECT
   socket.on("disconnect", async () => {
     delete users[socket.id];
     const userList = await buildUserList();
     io.emit("userList", userList);
   });
-
 });
-  
-// ===== START SERVER =====
+
+// START SERVER
 server.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });

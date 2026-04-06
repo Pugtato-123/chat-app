@@ -14,19 +14,18 @@ const registerBtn = document.getElementById("registerBtn");
 const uploadBtn = document.getElementById("uploadBtn");
 const uploadInput = document.getElementById("upload");
 
-// ===== ENTER LOGIN =====
-usernameInput.addEventListener("keypress", e => {
-  if (e.key === "Enter") loginBtn.click();
-});
-passwordInput.addEventListener("keypress", e => {
-  if (e.key === "Enter") loginBtn.click();
-});
+// ===== SAFE HTML =====
+function safeHTML(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
 // ===== LOGIN =====
 loginBtn.onclick = () => {
   const u = usernameInput.value.trim();
   const p = passwordInput.value.trim();
-
   if (!u || !p) return alert("Enter username + password");
 
   socket.emit("login", { username: u, password: p }, (res) => {
@@ -34,17 +33,14 @@ loginBtn.onclick = () => {
 
     username = u;
 
-    // hide login
     document.querySelector(".controls").style.display = "none";
 
-    // apply saved settings
     document.body.className = "";
     document.body.classList.add("font-" + (res.font || "default"));
     document.body.classList.add("theme-" + (res.theme || "macchiato"));
 
-    // ===== TOP RIGHT ACCOUNT =====
+    // ACCOUNT DISPLAY
     const header = document.querySelector("header");
-
     const acc = document.createElement("div");
     acc.classList.add("account");
 
@@ -58,7 +54,6 @@ loginBtn.onclick = () => {
     const settingsBtn = document.createElement("button");
     settingsBtn.textContent = "⚙";
     settingsBtn.classList.add("settings-btn");
-
     settingsBtn.onclick = () => {
       document.getElementById("settingsPanel").classList.toggle("open");
     };
@@ -66,7 +61,6 @@ loginBtn.onclick = () => {
     acc.appendChild(name);
     acc.appendChild(img);
     acc.appendChild(settingsBtn);
-
     header.appendChild(acc);
 
     input.disabled = false;
@@ -78,7 +72,6 @@ loginBtn.onclick = () => {
 registerBtn.onclick = () => {
   const u = usernameInput.value.trim();
   const p = passwordInput.value.trim();
-
   if (!u || !p) return alert("Enter username + password");
 
   socket.emit("register", { username: u, password: p }, (res) => {
@@ -91,21 +84,16 @@ registerBtn.onclick = () => {
 function sendMessage() {
   const msg = input.value.trim();
   if (!msg) return;
-
   socket.emit("chatMessage", msg);
   input.value = "";
 }
 
-// ENTER SEND
-input.addEventListener("keypress", e => {
-  if (e.key === "Enter") sendMessage();
-});
+input.addEventListener("keypress", e => { if (e.key === "Enter") sendMessage(); });
+usernameInput.addEventListener("keypress", e => { if (e.key === "Enter") loginBtn.click(); });
+passwordInput.addEventListener("keypress", e => { if (e.key === "Enter") loginBtn.click(); });
 
-// ===== RECEIVE MESSAGE (GROUPING + AUTOSCROLL FIX) =====
-socket.on("chatMessage", (data) => {
-  const isNearBottom =
-    messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50;
-
+// ===== RENDER MESSAGE =====
+function renderMessage(data) {
   const now = Date.now();
 
   if (
@@ -114,7 +102,7 @@ socket.on("chatMessage", (data) => {
     now - lastMsg.time < 120000
   ) {
     const line = document.createElement("div");
-    line.innerHTML = data.msg;
+    line.innerHTML = safeHTML(data.msg);
     lastMsg.text.appendChild(line);
   } else {
     const roleTag =
@@ -144,26 +132,19 @@ socket.on("chatMessage", (data) => {
     `;
 
     const textDiv = div.querySelector(".msg-text");
-
     const line = document.createElement("div");
-    line.innerHTML = data.msg;
+    line.innerHTML = safeHTML(data.msg);
     textDiv.appendChild(line);
 
     messages.appendChild(div);
 
-    lastMsg = {
-      username: data.username,
-      time: now,
-      text: textDiv
-    };
+    lastMsg = { username: data.username, time: now, text: textDiv };
   }
 
-  if (isNearBottom) {
-    requestAnimationFrame(() => {
-      messages.scrollTop = messages.scrollHeight;
-    });
+  if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50) {
+    requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
   }
-});
+}
 
 // ===== MESSAGE HISTORY =====
 socket.on("messageHistory", (history) => {
@@ -171,8 +152,13 @@ socket.on("messageHistory", (history) => {
   lastMsg = null;
 
   history.forEach(data => {
-    socket.emit("chatMessage", data.msg);
+    renderMessage(data);
   });
+});
+
+// ===== RECEIVE MESSAGE =====
+socket.on("chatMessage", (data) => {
+  renderMessage(data);
 });
 
 // ===== USER LIST =====
@@ -210,17 +196,9 @@ uploadInput.onchange = async () => {
   uploadBtn.textContent = "...";
 
   try {
-    const res = await fetch("/upload", {
-      method: "POST",
-      body: formData
-    });
-
+    const res = await fetch("/upload", { method: "POST", body: formData });
     const data = await res.json();
-
-    socket.emit(
-      "chatMessage",
-      `<img src="${data.url}" style="max-width:200px;border-radius:6px;">`
-    );
+    socket.emit("chatMessage", `<img src="${data.url}" style="max-width:200px;border-radius:6px;">`);
   } catch {
     alert("Upload failed");
   }

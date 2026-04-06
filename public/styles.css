@@ -2,8 +2,6 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  background: #0f172a;
-  color: #e5e7eb;
 }
 
 /* ===== APP ===== */
@@ -16,8 +14,7 @@ body {
 /* ===== HEADER ===== */
 header {
   padding: 12px 16px;
-  background: #020617;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--border);
   font-size: 16px;
   font-weight: 600;
   display: flex;
@@ -29,27 +26,7 @@ header {
   display: flex;
   gap: 8px;
   padding: 10px 16px;
-  background: #020617;
-  border-bottom: 1px solid #1e293b;
-}
-
-.controls input {
-  padding: 6px 8px;
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  color: white;
-}
-
-.controls button {
-  padding: 6px 10px;
-  background: #1d4ed8;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.controls button:hover {
-  background: #1e40af;
+  border-bottom: 1px solid var(--border);
 }
 
 /* ===== MAIN ===== */
@@ -61,7 +38,7 @@ header {
 
 /* ===== SIDEBAR ===== */
 .sidebar {
-  width: 180px; /* thinner */
+  width: 180px;
   background: var(--mantle);
   border-right: 1px solid var(--border);
   padding: 8px;
@@ -70,15 +47,17 @@ header {
 .sidebar h3 {
   margin: 0 0 10px 0;
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--subtext);
 }
 
+/* ===== USER LIST ===== */
 #userList li {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 4px;
   font-size: 13px;
+  cursor: pointer;
 }
 
 .user-pfp {
@@ -112,6 +91,7 @@ header {
   flex: 1;
   overflow-y: auto;
   padding: 12px 16px;
+  background: var(--bg);
 }
 
 .msg {
@@ -131,7 +111,7 @@ header {
 
 .time {
   font-size: 11px;
-  color: #64748b;
+  color: var(--subtext);
 }
 
 /* ===== COMPOSER ===== */
@@ -139,41 +119,59 @@ header {
   display: flex;
   align-items: center;
   padding: 10px;
-  border-top: 1px solid #1e293b;
-  background: #020617;
+  border-top: 1px solid var(--border);
+  background: var(--mantle);
 }
 
 .composer input {
   flex: 1;
   padding: 8px;
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  color: white;
 }
 
-.composer input:focus {
+/* ===== INPUT / BUTTON GLOBAL ===== */
+input,
+.settings-inner input,
+.settings-inner select {
+  background: var(--base);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px;
+}
+
+input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(138,173,244,0.2);
 }
 
-/* ===== UPLOAD BUTTON ===== */
+button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
+button:hover {
+  filter: brightness(1.1);
+}
+
+/* ===== UPLOAD ===== */
 #upload {
   display: none;
 }
 
 #uploadBtn {
   margin-left: 8px;
-  padding: 6px 10px;
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  color: #94a3b8;
-  cursor: pointer;
   border-radius: 6px;
+  background: var(--base);
+  border: 1px solid var(--border);
+  color: var(--subtext);
 }
 
 #uploadBtn:hover {
-  background: #1e293b;
-  color: white;
+  background: var(--surface);
+  color: var(--text);
 }
 
 /* ===== ACCOUNT ===== */
@@ -193,12 +191,12 @@ header {
 .settings-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--subtext);
   cursor: pointer;
   font-size: 16px;
 }
 
-/* ===== SETTINGS PANEL ===== */
+/* ===== SETTINGS ===== */
 .settings {
   position: fixed;
   inset: 0;
@@ -213,144 +211,14 @@ header {
 }
 
 .settings-inner {
-  background: #020617;
   padding: 20px;
   border-radius: 10px;
   width: 260px;
-  border: 1px solid #1e293b;
 }
 
-.settings-inner input,
-.settings-inner select {
-  width: 100%;
-  margin-bottom: 10px;
-  padding: 6px;
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  color: white;
-}
+/* ===== CATPPUCCIN THEMES ===== */
 
-.settings-inner button {
-  width: 100%;
-  padding: 8px;
-  background: #1d4ed8;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-/* ===== FONTS ===== */
-body.font-jetbrains {
-  font-family: "JetBrains Mono", monospace;
-}
-
-body.font-fira {
-  font-family: "Fira Code", monospace;
-}
-
-/* ========================= */
-/* CATPPUCCIN THEMES */
-/* ========================= */
-
-/* ===== MACCHIATO (DARK) ===== */
-body.theme-macchiato {
-  --bg: #24273a;
-  --base: #1e2030;
-  --mantle: #181926;
-  --text: #cad3f5;
-  --subtext: #a5adcb;
-  --border: #363a4f;
-  --accent: #8aadf4;
-}
-
-/* ===== LATTE (LIGHT) ===== */
-body.theme-latte {
-  --bg: #eff1f5;
-  --base: #e6e9ef;
-  --mantle: #dce0e8;
-  --text: #4c4f69;
-  --subtext: #6c6f85;
-  --border: #bcc0cc;
-  --accent: #1e66f5;
-}
-
-/* ===== APPLY VARIABLES ===== */
-
-body {
-  background: var(--bg);
-  color: var(--text);
-}
-
-header,
-.controls,
-.sidebar,
-.composer {
-  background: var(--mantle);
-  border-color: var(--border);
-}
-
-.messages {
-  background: var(--bg);
-}
-
-.controls input,
-.composer input,
-.settings-inner input,
-.settings-inner select {
-  background: var(--base);
-  border: 1px solid var(--border);
-  color: var(--text);
-}
-
-.controls button,
-.settings-inner button {
-  background: var(--accent);
-}
-
-#uploadBtn {
-  background: var(--base);
-  border: 1px solid var(--border);
-  color: var(--subtext);
-}
-
-#uploadBtn:hover {
-  background: var(--border);
-  color: var(--text);
-}
-
-.time {
-  color: var(--subtext);
-}
-
-.settings-inner {
-  background: var(--mantle);
-  border: 1px solid var(--border);
-}
-
-/* ========================= */
-/* SMOOTH THEME TRANSITION */
-/* ========================= */
-
-body,
-header,
-.controls,
-.sidebar,
-.chat,
-.messages,
-.composer,
-.settings-inner,
-input,
-button {
-  transition: 
-    background 0.25s ease,
-    color 0.25s ease,
-    border-color 0.25s ease;
-}
-
-/* ========================= */
-/* MACCHIATO (DARK DEFAULT) */
-/* ========================= */
-
+/* DARK (DEFAULT) */
 body.theme-macchiato {
   --bg: #24273a;
   --mantle: #1e2030;
@@ -362,16 +230,12 @@ body.theme-macchiato {
 
   --border: #363a4f;
 
-  --accent: #8aadf4;   /* blue */
-  --accent2: #c6a0f6;  /* mauve */
+  --accent: #8aadf4;
 }
 
-/* ========================= */
-/* LATTE (FIXED NOT BLINDING) */
-/* ========================= */
-
+/* LIGHT (SOFTER) */
 body.theme-latte {
-  --bg: #e6e9ef;        /* toned down */
+  --bg: #e6e9ef;
   --mantle: #dce0e8;
   --surface: #ccd0da;
   --base: #dce0e8;
@@ -382,13 +246,9 @@ body.theme-latte {
   --border: #bcc0cc;
 
   --accent: #1e66f5;
-  --accent2: #8839ef;
 }
 
-/* ========================= */
-/* APPLY COLORS */
-/* ========================= */
-
+/* APPLY */
 body {
   background: var(--bg);
   color: var(--text);
@@ -397,80 +257,13 @@ body {
 header,
 .controls,
 .sidebar,
-.composer {
+.composer,
+.settings-inner {
   background: var(--mantle);
   border-color: var(--border);
 }
 
-.messages {
-  background: var(--bg);
-}
-
-/* INPUTS */
-input {
-  background: var(--base);
-  border: 1px solid var(--border);
-  color: var(--text);
-}
-
-/* BUTTONS */
-button {
-  background: var(--accent);
-  color: white;
-}
-
-button:hover {
-  filter: brightness(1.1);
-}
-
-/* UPLOAD BUTTON */
-#uploadBtn {
-  background: var(--base);
-  border: 1px solid var(--border);
-  color: var(--subtext);
-}
-
-#uploadBtn:hover {
-  background: var(--surface);
-  color: var(--text);
-}
-
-/* TEXT */
-.time {
-  color: var(--subtext);
-}
-
-/* SETTINGS */
-.settings-inner {
-  background: var(--mantle);
-  border: 1px solid var(--border);
-}
-
-/* ========================= */
-/* ACCENT DETAILS */
-/* ========================= */
-
-/* input focus glow */
-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(138, 173, 244, 0.2);
-}
-
-/* username accent */
-.msg strong {
-  color: var(--accent);
-}
-
-/* hover message */
-.msg:hover {
-  background: rgba(255,255,255,0.03);
-}
-
-/* ========================= */
-/* FONT OPTIONS */
-/* ========================= */
-
+/* ===== FONTS ===== */
 body.font-jetbrains {
   font-family: "JetBrains Mono", monospace;
 }
@@ -479,33 +272,19 @@ body.font-fira {
   font-family: "Fira Code", monospace;
 }
 
-/* ===== USER LIST FINAL ===== */
-
-#userList li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 4px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.user-pfp {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-/* prevents long names breaking layout */
-#userList li span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* hover */
-#userList li:hover {
-  background: rgba(255,255,255,0.05);
-  border-radius: 6px;
+/* ===== SMOOTH TRANSITION ===== */
+body,
+header,
+.controls,
+.sidebar,
+.chat,
+.messages,
+.composer,
+.settings-inner,
+input,
+button {
+  transition:
+    background 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease;
 }

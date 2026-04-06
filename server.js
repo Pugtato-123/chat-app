@@ -4,6 +4,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const { Pool } = require("pg");
 const multer = require("multer");
+const bcrypt = require("bcrypt");
 
 const app = express();
 const server = http.createServer(app);
@@ -55,7 +56,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // ===== DATA =====
 let users = {};
 
-// ===== HELPER: build user list with avatars =====
+// ===== HELPERS =====
 async function buildUserList() {
   return await Promise.all(
     Object.values(users).map(async (u) => {
@@ -83,9 +84,10 @@ io.on("connection", (socket) => {
   // REGISTER
   socket.on("register", async ({ username, password }, cb) => {
     try {
+      const hash = await bcrypt.hash(password, 10);
       await pool.query(
         "INSERT INTO users (username,password) VALUES ($1,$2)",
-        [username, password]
+        [username, hash]
       );
       cb({ success: true });
     } catch {
@@ -101,7 +103,7 @@ io.on("connection", (socket) => {
     );
 
     const user = res.rows[0];
-    if (!user || user.password !== password) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return cb({ success: false });
     }
 
@@ -109,7 +111,7 @@ io.on("connection", (socket) => {
 
     // LOAD HISTORY
     const result = await pool.query(`
-      SELECT m.*, u.avatar, u.role, u.color
+      SELECT m.*, u.avatar, u.role, u.color, u.font, u.theme
       FROM messages m
       LEFT JOIN users u ON m.username = u.username
       ORDER BY m.id ASC
@@ -121,7 +123,9 @@ io.on("connection", (socket) => {
       time: row.time,
       avatar: row.avatar,
       role: row.role,
-      color: row.color
+      color: row.color,
+      font: row.font,
+      theme: row.theme
     }));
 
     socket.emit("messageHistory", history);
@@ -144,41 +148,25 @@ io.on("connection", (socket) => {
   socket.on("setAvatar", async (url) => {
     const u = users[socket.id];
     if (!u) return;
-
-    await pool.query(
-      "UPDATE users SET avatar=$1 WHERE username=$2",
-      [url, u]
-    );
+    await pool.query("UPDATE users SET avatar=$1 WHERE username=$2", [url, u]);
   });
 
   socket.on("setFont", async (font) => {
     const u = users[socket.id];
     if (!u) return;
-
-    await pool.query(
-      "UPDATE users SET font=$1 WHERE username=$2",
-      [font, u]
-    );
+    await pool.query("UPDATE users SET font=$1 WHERE username=$2", [font, u]);
   });
 
   socket.on("setColor", async (color) => {
     const u = users[socket.id];
     if (!u) return;
-
-    await pool.query(
-      "UPDATE users SET color=$1 WHERE username=$2",
-      [color, u]
-    );
+    await pool.query("UPDATE users SET color=$1 WHERE username=$2", [color, u]);
   });
 
   socket.on("setTheme", async (theme) => {
     const u = users[socket.id];
     if (!u) return;
-
-    await pool.query(
-      "UPDATE users SET theme=$1 WHERE username=$2",
-      [theme, u]
-    );
+    await pool.query("UPDATE users SET theme=$1 WHERE username=$2", [theme, u]);
   });
 
   // MESSAGE
@@ -192,6 +180,23 @@ io.on("connection", (socket) => {
       "SELECT avatar, role, color FROM users WHERE username=$1",
       [u]
     );
+
+    const role = userRes.rows[0]?.role;
+
+    // COMMANDS
+    if (msg === "/clear" && role === "admin") {
+      await pool.query("DELETE FROM messages");
+      io.emit("messageHistory", []);
+      return;
+    }
+
+    if (msg.startsWith("/kick ") && role === "admin") {
+      const target = msg.split(" ")[1];
+      for (const [id, name] of Object.entries(users)) {
+        if (name === target) io.sockets.sockets.get(id)?.disconnect();
+      }
+      return;
+    }
 
     const messageData = {
       username: u,
@@ -208,17 +213,15 @@ io.on("connection", (socket) => {
     io.emit("chatMessage", messageData);
   });
 
-  // DISCONNECT (FIXED)
+  // DISCONNECT
   socket.on("disconnect", async () => {
     delete users[socket.id];
-
     const userList = await buildUserList();
     io.emit("userList", userList);
   });
-
 });
 
-// ===== START =====
+// START SERVER
 server.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });

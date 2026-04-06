@@ -225,3 +225,16 @@ io.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });
+
+// CLEAR MESSAGES (admin only)
+socket.on("clearChat", async () => {
+  const username = users[socket.id];
+  if (!username) return;
+
+  // check if admin
+  const res = await pool.query("SELECT admin FROM users WHERE username=$1", [username]);
+  if (!res.rows[0]?.admin) return;
+
+  await pool.query("DELETE FROM messages");
+  io.emit("chatCleared"); // notify all clients
+});

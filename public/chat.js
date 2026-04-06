@@ -225,3 +225,12 @@ function saveSettings() {
 
   document.getElementById("settingsPanel").classList.remove("open");
 }
+
+clearBtn.onclick = () => {
+  socket.emit("clearChat");
+};
+
+socket.on("chatCleared", () => {
+  messages.innerHTML = "";
+  lastMsg = null;
+});

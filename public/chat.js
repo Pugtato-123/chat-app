@@ -13,6 +13,7 @@ const registerBtn = document.getElementById("registerBtn");
 
 const uploadBtn = document.getElementById("uploadBtn");
 const uploadInput = document.getElementById("upload");
+const clearBtn = document.getElementById("clearBtn");
 
 // ===== SAFE HTML =====
 function safeHTML(str) {
@@ -104,6 +105,14 @@ function sendMessage() {
   socket.emit("chatMessage", msg);
   input.value = "";
 }
+
+// ===== ENTER KEY =====
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault(); // prevent newline
+    sendMessage();
+  }
+});
 
 // ===== RENDER MESSAGE =====
 function renderMessage(data) {
@@ -239,14 +248,10 @@ function saveSettings() {
   document.getElementById("settingsPanel").classList.remove("open");
 }
 
+// ===== CLEAR CHAT =====
 clearBtn.onclick = () => {
   socket.emit("clearChat");
 };
-
-socket.on("chatCleared", () => {
-  messages.innerHTML = "";
-  lastMsg = null;
-});
 
 socket.on("chatCleared", () => {
   messages.innerHTML = "";

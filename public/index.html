@@ -2,17 +2,23 @@
 <html>
 <head>
   <title>Chat App</title>
+
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Fira+Code&display=swap" rel="stylesheet">
 </head>
 <body class="theme-macchiato">
 
+
+  
 <div id="app">
 
   <header>
     <h2>Chat App</h2>
   </header>
 
+  <!-- LOGIN -->
   <div class="controls">
     <input id="usernameInput" placeholder="Username">
     <input id="passwordInput" type="password" placeholder="Password">
@@ -22,48 +28,61 @@
 
   <div class="main">
 
+    <!-- SIDEBAR -->
     <div class="sidebar">
       <h3>Users</h3>
       <ul id="userList"></ul>
     </div>
 
+    <!-- CHAT -->
     <div class="chat">
+
       <div id="messages" class="messages"></div>
 
       <div class="composer">
         <input id="msgInput" placeholder="Type a message..." disabled>
+
+        <!-- hidden upload -->
         <input type="file" id="upload">
+
+        <!-- button -->
         <button id="uploadBtn">📎</button>
       </div>
+
     </div>
 
   </div>
 
 </div>
 
+<!-- SETTINGS PANEL -->
 <div id="settingsPanel" class="settings">
   <div class="settings-inner">
     <h3>Settings</h3>
 
-    <input id="avatarInput" placeholder="Avatar URL">
+    <label>Avatar URL</label>
+    <input id="avatarInput" placeholder="https://...">
+
+    <label>Name Color</label>
     <input id="colorInput" type="color">
 
+    <label>Font</label>
     <select id="fontSelect">
       <option value="default">Default</option>
       <option value="jetbrains">JetBrains Mono</option>
       <option value="fira">Fira Code</option>
     </select>
-
-    <select id="themeSelect">
-      <option value="macchiato">Dark</option>
-      <option value="latte">Light</option>
-    </select>
-
+    <label>Theme</label>
+<select id="themeSelect">
+  <option value="macchiato">Catppuccin Macchiato (Dark)</option>
+  <option value="latte">Catppuccin Latte (Light)</option>
+</select>
     <button onclick="saveSettings()">Save</button>
   </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="chat.js"></script>
+
 </body>
 </html>

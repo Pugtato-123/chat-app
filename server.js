@@ -1,3 +1,4 @@
+// server.js
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -5,50 +6,29 @@ const bodyParser = require("body-parser");
 const multer = require("multer");
 const path = require("path");
 const { Pool } = require("pg");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// ===== POSTGRES POOL =====
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || "postgresql://user:pass@localhost:5432/chatdb",
+});
+
+// ===== MIDDLEWARE =====
 app.use(express.static("public"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ===== DATABASE =====
-const db = new sqlite3.Database("./chat.db", (err) => {
-  if (err) console.error(err);
-  else console.log("DB connected");
-});
-
-// USERS TABLE
-db.run(`
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE,
-  password TEXT,
-  role TEXT DEFAULT 'user',
-  avatar TEXT,
-  color TEXT,
-  font TEXT,
-  theme TEXT
-)
-`);
-
-// MESSAGES TABLE
-db.run(`
-CREATE TABLE IF NOT EXISTS messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT,
-  msg TEXT,
-  time INTEGER
-)
-`);
-
 // ===== UPLOAD CONFIG =====
+const uploadDir = "./public/uploads";
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "./public/uploads"),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + path.extname(file.originalname)),
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
 });
 const upload = multer({ storage });
 
@@ -65,106 +45,104 @@ io.on("connection", (socket) => {
   console.log("New connection:", socket.id);
 
   // ---- LOGIN ----
-  socket.on("login", ({ username, password }, callback) => {
-    db.get(
-      "SELECT * FROM users WHERE username=? AND password=?",
-      [username, password],
-      (err, row) => {
-        if (err) return callback({ success: false });
-        if (!row) return callback({ success: false });
+  socket.on("login", async ({ username, password }, callback) => {
+    try {
+      const res = await pool.query(
+        "SELECT * FROM users WHERE username=$1 AND password=$2",
+        [username, password]
+      );
+      if (!res.rows[0]) return callback({ success: false });
 
-        users[socket.id] = username;
+      users[socket.id] = username;
 
-        callback({
-          success: true,
-          font: row.font,
-          theme: row.theme,
-          color: row.color,
-          avatar: row.avatar,
-        });
+      callback({
+        success: true,
+        font: res.rows[0].font,
+        theme: res.rows[0].theme,
+        color: res.rows[0].color,
+        avatar: res.rows[0].avatar,
+        role: res.rows[0].role,
+      });
 
-        sendUserList();
-        sendMessageHistory(socket);
-      }
-    );
+      sendUserList();
+      sendMessageHistory(socket);
+    } catch (err) {
+      console.error(err);
+      callback({ success: false });
+    }
   });
 
   // ---- REGISTER ----
-  socket.on("register", ({ username, password }, callback) => {
-    db.run(
-      "INSERT INTO users(username,password) VALUES(?,?)",
-      [username, password],
-      function (err) {
-        if (err) return callback({ success: false, message: "Username taken" });
-        callback({ success: true });
-      }
-    );
+  socket.on("register", async ({ username, password }, callback) => {
+    try {
+      await pool.query(
+        "INSERT INTO users(username,password,role) VALUES($1,$2,'user')",
+        [username, password]
+      );
+      callback({ success: true });
+    } catch (err) {
+      callback({ success: false, message: "Username taken" });
+    }
   });
 
   // ---- SEND MESSAGE ----
-  socket.on("chatMessage", (msg) => {
+  socket.on("chatMessage", async (msg) => {
     const username = users[socket.id];
     if (!username) return;
 
     const time = Date.now();
-    db.run(
-      "INSERT INTO messages(username,msg,time) VALUES(?,?,?)",
-      [username, msg, time],
-      (err) => {
-        if (err) return console.error(err);
-
-        db.get("SELECT role, avatar, color FROM users WHERE username=?", [username], (err, row) => {
-          if (err) return;
-
-          io.emit("chatMessage", {
-            username,
-            msg,
-            time,
-            role: row.role,
-            avatar: row.avatar,
-            color: row.color,
-          });
-        });
-      }
-    );
+    try {
+      await pool.query("INSERT INTO messages(username,msg,time) VALUES($1,$2,$3)", [
+        username,
+        msg,
+        time,
+      ]);
+      const userRes = await pool.query(
+        "SELECT role, avatar, color FROM users WHERE username=$1",
+        [username]
+      );
+      const user = userRes.rows[0];
+      io.emit("chatMessage", { username, msg, time, role: user.role, avatar: user.avatar, color: user.color });
+    } catch (err) {
+      console.error(err);
+    }
   });
 
   // ---- CLEAR CHAT ----
-  socket.on("clearChat", () => {
+  socket.on("clearChat", async () => {
     const username = users[socket.id];
     if (!username) return;
 
-    db.get("SELECT role FROM users WHERE username=?", [username], (err, row) => {
-      if (err || !row) return;
-      if (row.role !== "admin") return; // only admins
-
-      db.run("DELETE FROM messages", (err) => {
-        if (err) return console.error(err);
-        io.emit("chatCleared");
-      });
-    });
+    try {
+      const roleRes = await pool.query("SELECT role FROM users WHERE username=$1", [username]);
+      if (!roleRes.rows[0] || roleRes.rows[0].role !== "admin") return;
+      await pool.query("DELETE FROM messages");
+      io.emit("chatCleared");
+    } catch (err) {
+      console.error(err);
+    }
   });
 
   // ---- SETTINGS ----
-  socket.on("setAvatar", (avatar) => {
+  socket.on("setAvatar", async (avatar) => {
     const username = users[socket.id];
     if (!username) return;
-    db.run("UPDATE users SET avatar=? WHERE username=?", [avatar, username]);
+    await pool.query("UPDATE users SET avatar=$1 WHERE username=$2", [avatar, username]);
   });
-  socket.on("setColor", (color) => {
+  socket.on("setColor", async (color) => {
     const username = users[socket.id];
     if (!username) return;
-    db.run("UPDATE users SET color=? WHERE username=?", [color, username]);
+    await pool.query("UPDATE users SET color=$1 WHERE username=$2", [color, username]);
   });
-  socket.on("setFont", (font) => {
+  socket.on("setFont", async (font) => {
     const username = users[socket.id];
     if (!username) return;
-    db.run("UPDATE users SET font=? WHERE username=?", [font, username]);
+    await pool.query("UPDATE users SET font=$1 WHERE username=$2", [font, username]);
   });
-  socket.on("setTheme", (theme) => {
+  socket.on("setTheme", async (theme) => {
     const username = users[socket.id];
     if (!username) return;
-    db.run("UPDATE users SET theme=? WHERE username=?", [theme, username]);
+    await pool.query("UPDATE users SET theme=$1 WHERE username=$2", [theme, username]);
   });
 
   // ---- DISCONNECT ----
@@ -174,27 +152,28 @@ io.on("connection", (socket) => {
   });
 
   // ---- SEND USER LIST ----
-  function sendUserList() {
+  async function sendUserList() {
     const usernames = Object.values(users);
     if (!usernames.length) return;
-    db.all(
-      "SELECT username, avatar FROM users WHERE username IN (" +
-        usernames.map(() => "?").join(",") +
-        ")",
-      usernames,
-      (err, rows) => {
-        if (err) return;
-        io.emit("userList", rows);
-      }
-    );
+    try {
+      const res = await pool.query(
+        `SELECT username, avatar FROM users WHERE username = ANY($1)`,
+        [usernames]
+      );
+      io.emit("userList", res.rows);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   // ---- SEND MESSAGE HISTORY ----
-  function sendMessageHistory(targetSocket) {
-    db.all("SELECT * FROM messages ORDER BY id ASC", [], (err, rows) => {
-      if (err) return;
-      targetSocket.emit("messageHistory", rows);
-    });
+  async function sendMessageHistory(targetSocket) {
+    try {
+      const res = await pool.query("SELECT * FROM messages ORDER BY id ASC");
+      targetSocket.emit("messageHistory", res.rows);
+    } catch (err) {
+      console.error(err);
+    }
   }
 });
 

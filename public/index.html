@@ -7,10 +7,12 @@
 <body>
 
 <div id="app">
+
   <header>
     <h2>Chat App</h2>
   </header>
 
+  <!-- LOGIN -->
   <div class="controls">
     <input id="usernameInput" placeholder="Username">
     <input id="passwordInput" type="password" placeholder="Password">
@@ -19,22 +21,34 @@
   </div>
 
   <div class="main">
+
+    <!-- SIDEBAR -->
     <div class="sidebar">
       <h3>Users</h3>
       <ul id="userList"></ul>
     </div>
 
+    <!-- CHAT -->
     <div class="chat">
+
       <div id="messages" class="messages"></div>
+
       <div class="composer">
         <input id="msgInput" placeholder="Type a message..." disabled>
         <button id="sendBtn" disabled>Send</button>
+
+        <!-- IMAGE UPLOAD (small, non-intrusive) -->
+        <input type="file" id="upload" style="margin-left:8px;">
       </div>
+
     </div>
+
   </div>
+
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="chat.js"></script>
+
 </body>
 </html>

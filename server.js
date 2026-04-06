@@ -4,7 +4,7 @@ const { Server } = require("socket.io");
 const bodyParser = require("body-parser");
 const multer = require("multer");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose(); // simple local DB
+const { Pool } = require("pg");
 
 const app = express();
 const server = http.createServer(app);

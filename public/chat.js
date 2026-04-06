@@ -88,15 +88,16 @@ function sendMessage() {
 
   // --- SLASH COMMANDS ---
   if (msg.startsWith("/")) {
-    const [command] = msg.slice(1).split(" "); // get first word after "/"
+    const [command] = msg.slice(1).split(" "); // first word after "/"
 
-    if (command === "clear") {
-      socket.emit("clearChat"); // ask server to clear messages
-      input.value = "";
-      return;
+    switch (command) {
+      case "clear":
+        socket.emit("clearChat"); // send to server
+        input.value = "";
+        return;
+      // add more commands here if needed
     }
 
-    // You can add more slash commands here
     input.value = "";
     return;
   }
@@ -109,7 +110,7 @@ function sendMessage() {
 // ===== ENTER KEY =====
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault(); // prevent newline
+    e.preventDefault();
     sendMessage();
   }
 });
@@ -164,7 +165,9 @@ function renderMessage(data) {
   }
 
   if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50) {
-    requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
+    requestAnimationFrame(() => {
+      messages.scrollTop = messages.scrollHeight;
+    });
   }
 }
 
@@ -172,27 +175,24 @@ function renderMessage(data) {
 socket.on("messageHistory", (history) => {
   messages.innerHTML = "";
   lastMsg = null;
-
-  history.forEach(data => {
-    renderMessage(data);
-  });
+  history.forEach((data) => renderMessage(data));
 });
 
 // ===== RECEIVE MESSAGE =====
-socket.on("chatMessage", (data) => {
-  renderMessage(data);
-});
+socket.on("chatMessage", (data) => renderMessage(data));
 
 // ===== USER LIST =====
 socket.on("userList", (users) => {
   const list = document.getElementById("userList");
   list.innerHTML = "";
 
-  users.forEach(u => {
+  users.forEach((u) => {
     const li = document.createElement("li");
 
     const img = document.createElement("img");
-    img.src = u.avatar || "https://i.pinimg.com/236x/7e/4a/a3/7e4aa3f27b0a8068c4a1258a1c061557.jpg";
+    img.src =
+      u.avatar ||
+      "https://i.pinimg.com/236x/7e/4a/a3/7e4aa3f27b0a8068c4a1258a1c061557.jpg";
     img.classList.add("user-pfp");
 
     const name = document.createElement("span");
@@ -220,7 +220,10 @@ uploadInput.onchange = async () => {
   try {
     const res = await fetch("/upload", { method: "POST", body: formData });
     const data = await res.json();
-    socket.emit("chatMessage", `<img src="${data.url}" style="max-width:200px;border-radius:6px;">`);
+    socket.emit(
+      "chatMessage",
+      `<img src="${data.url}" style="max-width:200px;border-radius:6px;">`
+    );
   } catch {
     alert("Upload failed");
   }
@@ -249,10 +252,13 @@ function saveSettings() {
 }
 
 // ===== CLEAR CHAT =====
-clearBtn.onclick = () => {
-  socket.emit("clearChat");
-};
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    socket.emit("clearChat");
+  });
+}
 
+// ===== HANDLE CHAT CLEARED =====
 socket.on("chatCleared", () => {
   messages.innerHTML = "";
   lastMsg = null;

@@ -20,9 +20,11 @@ header {
   border-bottom: 1px solid #1e293b;
   font-size: 16px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
 }
 
-/* ===== LOGIN BAR ===== */
+/* ===== LOGIN ===== */
 .controls {
   display: flex;
   gap: 8px;
@@ -97,21 +99,22 @@ header {
   line-height: 1.4;
 }
 
-.msg strong {
-  font-weight: 600;
-}
-
 .msg:hover {
   background: rgba(255,255,255,0.03);
+}
+
+.msg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .time {
   font-size: 11px;
   color: #64748b;
-  margin-left: 6px;
 }
 
-/* ===== INPUT ===== */
+/* ===== COMPOSER ===== */
 .composer {
   display: flex;
   align-items: center;
@@ -133,52 +136,11 @@ header {
   border-color: #3b82f6;
 }
 
-.composer button {
-  margin-left: 8px;
-  padding: 8px 12px;
-  background: #1d4ed8;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.composer button:hover {
-  background: #1e40af;
-}
-
-/* ===== FILE INPUT ===== */
-#upload {
-  color: #94a3b8;
-  font-size: 12px;
-}
-
-/* ===== MESSAGE GROUPING ===== */
-.msg-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* ===== SETTINGS PANEL ===== */
-.settings {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  background: #020617;
-  border: 1px solid #1e293b;
-  padding: 12px;
-  border-radius: 8px;
-  display: none;
-  z-index: 1000;
-}
-
-.settings input {
-  display: block;
-  margin-bottom: 8px;
-  width: 180px;
-}
-
 /* ===== UPLOAD BUTTON ===== */
+#upload {
+  display: none;
+}
+
 #uploadBtn {
   margin-left: 8px;
   padding: 6px 10px;
@@ -194,7 +156,7 @@ header {
   color: white;
 }
 
-/* ===== ACCOUNT TOP RIGHT ===== */
+/* ===== ACCOUNT ===== */
 .account {
   margin-left: auto;
   display: flex;
@@ -206,6 +168,14 @@ header {
   width: 32px;
   height: 32px;
   border-radius: 50%;
+}
+
+.settings-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 16px;
 }
 
 /* ===== SETTINGS PANEL ===== */
@@ -249,6 +219,7 @@ header {
   cursor: pointer;
 }
 
+/* ===== FONTS ===== */
 body.font-jetbrains {
   font-family: "JetBrains Mono", monospace;
 }

@@ -9,6 +9,10 @@ const input = document.getElementById("msgInput");
 const usernameInput = document.getElementById("usernameInput");
 const passwordInput = document.getElementById("passwordInput");
 const loginBtn = document.getElementById("loginBtn");
+const registerBtn = document.getElementById("registerBtn");
+
+const uploadBtn = document.getElementById("uploadBtn");
+const uploadInput = document.getElementById("upload");
 
 // ===== ENTER LOGIN =====
 usernameInput.addEventListener("keypress", e => {
@@ -23,15 +27,20 @@ loginBtn.onclick = () => {
   const u = usernameInput.value.trim();
   const p = passwordInput.value.trim();
 
+  if (!u || !p) return alert("Enter username + password");
+
   socket.emit("login", { username: u, password: p }, (res) => {
     if (!res.success) return alert("Invalid login");
 
     username = u;
 
+    // hide login
     document.querySelector(".controls").style.display = "none";
 
-    // APPLY FONT FROM DB
-    document.body.className = "font-" + (res.font || "default");
+    // apply saved settings
+    document.body.className = "";
+    document.body.classList.add("font-" + (res.font || "default"));
+    document.body.classList.add("theme-" + (res.theme || "macchiato"));
 
     // ===== TOP RIGHT ACCOUNT =====
     const header = document.querySelector("header");
@@ -61,6 +70,20 @@ loginBtn.onclick = () => {
     header.appendChild(acc);
 
     input.disabled = false;
+    input.focus();
+  });
+};
+
+// ===== REGISTER =====
+registerBtn.onclick = () => {
+  const u = usernameInput.value.trim();
+  const p = passwordInput.value.trim();
+
+  if (!u || !p) return alert("Enter username + password");
+
+  socket.emit("register", { username: u, password: p }, (res) => {
+    if (!res.success) return alert(res.message);
+    alert("Account created");
   });
 };
 
@@ -78,7 +101,7 @@ input.addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
 
-// ===== RECEIVE MESSAGE (FIXED GROUP + AUTOSCROLL) =====
+// ===== RECEIVE MESSAGE (GROUPING + AUTOSCROLL FIX) =====
 socket.on("chatMessage", (data) => {
   const isNearBottom =
     messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50;
@@ -142,6 +165,16 @@ socket.on("chatMessage", (data) => {
   }
 });
 
+// ===== MESSAGE HISTORY =====
+socket.on("messageHistory", (history) => {
+  messages.innerHTML = "";
+  lastMsg = null;
+
+  history.forEach(data => {
+    socket.emit("chatMessage", data.msg);
+  });
+});
+
 // ===== USER LIST =====
 socket.on("userList", (users) => {
   const list = document.getElementById("userList");
@@ -155,9 +188,6 @@ socket.on("userList", (users) => {
 });
 
 // ===== IMAGE UPLOAD =====
-const uploadBtn = document.getElementById("uploadBtn");
-const uploadInput = document.getElementById("upload");
-
 uploadBtn.onclick = () => uploadInput.click();
 
 uploadInput.onchange = async () => {
@@ -195,11 +225,12 @@ function saveSettings() {
   const color = document.getElementById("colorInput").value;
   const font = document.getElementById("fontSelect").value;
 
-  socket.emit("setAvatar", avatar);
-  socket.emit("setFont", font);
-  socket.emit("chatMessage", `/color ${username} ${color}`);
+  if (avatar) socket.emit("setAvatar", avatar);
+  if (color) socket.emit("setColor", color);
+  if (font) socket.emit("setFont", font);
 
-  document.body.className = "font-" + font;
+  document.body.className = "";
+  document.body.classList.add("font-" + font);
 
   document.getElementById("settingsPanel").classList.remove("open");
 }

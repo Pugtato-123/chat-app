@@ -17,15 +17,16 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// ===== FILE UPLOAD =====
+// ===== UPLOAD =====
 const upload = multer({
   dest: "uploads/",
   limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 app.use("/uploads", express.static("uploads"));
+app.use(express.static(path.join(__dirname, "public")));
 
-// ===== CREATE / FIX TABLES =====
+// ===== DB SETUP =====
 (async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -41,13 +42,6 @@ app.use("/uploads", express.static("uploads"));
     );
   `);
 
-  // ensure columns exist
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT`);
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'`);
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#93c5fd'`);
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS font TEXT DEFAULT 'default'`);
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'macchiato'`);
-
   await pool.query(`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
@@ -58,11 +52,7 @@ app.use("/uploads", express.static("uploads"));
   `);
 })();
 
-// ===== DATA =====
 let users = {};
-
-// ===== STATIC =====
-app.use(express.static(path.join(__dirname, "public")));
 
 // ===== UPLOAD ROUTE =====
 app.post("/upload", upload.single("image"), (req, res) => {
@@ -73,34 +63,31 @@ app.post("/upload", upload.single("image"), (req, res) => {
 io.on("connection", (socket) => {
 
   // REGISTER
-  socket.on("register", async ({ username, password }, callback) => {
+  socket.on("register", async ({ username, password }, cb) => {
     try {
       await pool.query(
-        "INSERT INTO users (username, password) VALUES ($1, $2)",
+        "INSERT INTO users (username,password) VALUES ($1,$2)",
         [username, password]
       );
-      callback({ success: true });
+      cb({ success: true });
     } catch {
-      callback({ success: false, message: "User exists" });
+      cb({ success: false, message: "User exists" });
     }
   });
 
   // LOGIN
-  socket.on("login", async ({ username, password }, callback) => {
+  socket.on("login", async ({ username, password }, cb) => {
     const res = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
+      "SELECT * FROM users WHERE username=$1",
       [username]
     );
 
     const user = res.rows[0];
+    if (!user || user.password !== password) return cb({ success: false });
 
-    if (!user || user.password !== password) {
-      return callback({ success: false });
-    }
+    users[socket.id] = username;
 
-    users[socket.id] = user.username;
-
-    // LOAD HISTORY WITH USER DATA
+    // LOAD HISTORY WITH AVATARS
     const result = await pool.query(`
       SELECT m.*, u.avatar, u.role, u.color
       FROM messages m
@@ -120,9 +107,8 @@ io.on("connection", (socket) => {
     socket.emit("messageHistory", history);
     io.emit("userList", Object.values(users));
 
-    callback({
+    cb({
       success: true,
-      admin: user.admin,
       avatar: user.avatar,
       role: user.role,
       color: user.color,
@@ -131,138 +117,54 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ===== SETTINGS =====
+  // SETTINGS
   socket.on("setAvatar", async (url) => {
-    const username = users[socket.id];
-    if (!username) return;
-
-    await pool.query(
-      "UPDATE users SET avatar = $1 WHERE username = $2",
-      [url, username]
-    );
+    const u = users[socket.id];
+    if (!u) return;
+    await pool.query("UPDATE users SET avatar=$1 WHERE username=$2", [url, u]);
   });
 
   socket.on("setFont", async (font) => {
-    const username = users[socket.id];
-    if (!username) return;
+    const u = users[socket.id];
+    if (!u) return;
+    await pool.query("UPDATE users SET font=$1 WHERE username=$2", [font, u]);
+  });
 
-    await pool.query(
-      "UPDATE users SET font = $1 WHERE username = $2",
-      [font, username]
-    );
+  socket.on("setColor", async (color) => {
+    const u = users[socket.id];
+    if (!u) return;
+    await pool.query("UPDATE users SET color=$1 WHERE username=$2", [color, u]);
   });
 
   socket.on("setTheme", async (theme) => {
-    const username = users[socket.id];
-    if (!username) return;
-
-    await pool.query(
-      "UPDATE users SET theme = $1 WHERE username = $2",
-      [theme, username]
-    );
+    const u = users[socket.id];
+    if (!u) return;
+    await pool.query("UPDATE users SET theme=$1 WHERE username=$2", [theme, u]);
   });
 
-  // ===== ADMIN / MOD =====
-  socket.on("setRole", async ({ target, role }) => {
-    const username = users[socket.id];
-
-    const res = await pool.query(
-      "SELECT admin FROM users WHERE username = $1",
-      [username]
-    );
-
-    if (!res.rows[0]?.admin) return;
-
-    await pool.query(
-      "UPDATE users SET role = $1 WHERE username = $2",
-      [role, target]
-    );
-  });
-
-  socket.on("setColor", async ({ target, color }) => {
-    const username = users[socket.id];
-
-    const res = await pool.query(
-      "SELECT admin FROM users WHERE username = $1",
-      [username]
-    );
-
-    if (!res.rows[0]?.admin) return;
-
-    await pool.query(
-      "UPDATE users SET color = $1 WHERE username = $2",
-      [color, target]
-    );
-  });
-
-  socket.on("clearChat", async () => {
-    const username = users[socket.id];
-
-    const res = await pool.query(
-      "SELECT role FROM users WHERE username = $1",
-      [username]
-    );
-
-    if (!["admin", "mod"].includes(res.rows[0]?.role)) return;
-
-    await pool.query("DELETE FROM messages");
-    io.emit("clearChat");
-  });
-
-  socket.on("kickUser", async (targetUsername) => {
-    const username = users[socket.id];
-
-    const res = await pool.query(
-      "SELECT role FROM users WHERE username = $1",
-      [username]
-    );
-
-    if (!["admin", "mod"].includes(res.rows[0]?.role)) return;
-
-    const targetSocket = Object.keys(users).find(
-      (id) => users[id] === targetUsername
-    );
-
-    if (targetSocket) {
-      io.to(targetSocket).emit("kicked");
-      io.sockets.sockets.get(targetSocket)?.disconnect();
-    }
-  });
-
-  // ===== MESSAGE =====
+  // MESSAGE
   socket.on("chatMessage", async (msg) => {
-    const username = users[socket.id];
-    if (!username) return;
+    const u = users[socket.id];
+    if (!u) return;
 
     const time = new Date().toISOString();
 
     const userRes = await pool.query(
-      "SELECT avatar, role, color FROM users WHERE username = $1",
-      [username]
+      "SELECT avatar, role, color FROM users WHERE username=$1",
+      [u]
     );
 
-    const { avatar, role, color } = userRes.rows[0];
-
     const messageData = {
-      username,
+      username: u,
       msg,
       time,
-      avatar,
-      role,
-      color
+      ...userRes.rows[0]
     };
 
     await pool.query(
-      "INSERT INTO messages (username, message, time) VALUES ($1, $2, $3)",
-      [username, msg, time]
+      "INSERT INTO messages (username,message,time) VALUES ($1,$2,$3)",
+      [u, msg, time]
     );
-
-    await pool.query(`
-      DELETE FROM messages
-      WHERE id NOT IN (
-        SELECT id FROM messages ORDER BY id DESC LIMIT 100
-      )
-    `);
 
     io.emit("chatMessage", messageData);
   });
@@ -271,6 +173,7 @@ io.on("connection", (socket) => {
     delete users[socket.id];
     io.emit("userList", Object.values(users));
   });
+
 });
 
 server.listen(PORT, () => {

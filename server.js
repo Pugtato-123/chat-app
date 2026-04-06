@@ -52,7 +52,25 @@ app.use(express.static(path.join(__dirname, "public")));
   `);
 })();
 
+// ===== DATA =====
 let users = {};
+
+// ===== HELPER: build user list with avatars =====
+async function buildUserList() {
+  return await Promise.all(
+    Object.values(users).map(async (u) => {
+      const res = await pool.query(
+        "SELECT avatar FROM users WHERE username = $1",
+        [u]
+      );
+
+      return {
+        username: u,
+        avatar: res.rows[0]?.avatar
+      };
+    })
+  );
+}
 
 // ===== UPLOAD ROUTE =====
 app.post("/upload", upload.single("image"), (req, res) => {
@@ -83,11 +101,13 @@ io.on("connection", (socket) => {
     );
 
     const user = res.rows[0];
-    if (!user || user.password !== password) return cb({ success: false });
+    if (!user || user.password !== password) {
+      return cb({ success: false });
+    }
 
     users[socket.id] = username;
 
-    // LOAD HISTORY WITH AVATARS
+    // LOAD HISTORY
     const result = await pool.query(`
       SELECT m.*, u.avatar, u.role, u.color
       FROM messages m
@@ -105,7 +125,10 @@ io.on("connection", (socket) => {
     }));
 
     socket.emit("messageHistory", history);
-    io.emit("userList", Object.values(users));
+
+    // SEND USER LIST
+    const userList = await buildUserList();
+    io.emit("userList", userList);
 
     cb({
       success: true,
@@ -121,25 +144,41 @@ io.on("connection", (socket) => {
   socket.on("setAvatar", async (url) => {
     const u = users[socket.id];
     if (!u) return;
-    await pool.query("UPDATE users SET avatar=$1 WHERE username=$2", [url, u]);
+
+    await pool.query(
+      "UPDATE users SET avatar=$1 WHERE username=$2",
+      [url, u]
+    );
   });
 
   socket.on("setFont", async (font) => {
     const u = users[socket.id];
     if (!u) return;
-    await pool.query("UPDATE users SET font=$1 WHERE username=$2", [font, u]);
+
+    await pool.query(
+      "UPDATE users SET font=$1 WHERE username=$2",
+      [font, u]
+    );
   });
 
   socket.on("setColor", async (color) => {
     const u = users[socket.id];
     if (!u) return;
-    await pool.query("UPDATE users SET color=$1 WHERE username=$2", [color, u]);
+
+    await pool.query(
+      "UPDATE users SET color=$1 WHERE username=$2",
+      [color, u]
+    );
   });
 
   socket.on("setTheme", async (theme) => {
     const u = users[socket.id];
     if (!u) return;
-    await pool.query("UPDATE users SET theme=$1 WHERE username=$2", [theme, u]);
+
+    await pool.query(
+      "UPDATE users SET theme=$1 WHERE username=$2",
+      [theme, u]
+    );
   });
 
   // MESSAGE
@@ -169,13 +208,17 @@ io.on("connection", (socket) => {
     io.emit("chatMessage", messageData);
   });
 
-  socket.on("disconnect", () => {
+  // DISCONNECT (FIXED)
+  socket.on("disconnect", async () => {
     delete users[socket.id];
-    io.emit("userList", Object.values(users));
+
+    const userList = await buildUserList();
+    io.emit("userList", userList);
   });
 
 });
 
+// ===== START =====
 server.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });

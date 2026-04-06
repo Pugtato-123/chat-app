@@ -61,10 +61,10 @@ header {
 
 /* ===== SIDEBAR ===== */
 .sidebar {
-  width: 220px;
-  background: #020617;
-  border-right: 1px solid #1e293b;
-  padding: 10px;
+  width: 180px; /* thinner */
+  background: var(--mantle);
+  border-right: 1px solid var(--border);
+  padding: 8px;
 }
 
 .sidebar h3 {
@@ -74,9 +74,29 @@ header {
 }
 
 #userList li {
-  list-style: none;
-  padding: 4px 0;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  font-size: 13px;
+}
+
+.user-pfp {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+#userList li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#userList li:hover {
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
 }
 
 /* ===== CHAT ===== */
@@ -457,4 +477,35 @@ body.font-jetbrains {
 
 body.font-fira {
   font-family: "Fira Code", monospace;
+}
+
+/* ===== USER LIST FINAL ===== */
+
+#userList li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.user-pfp {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* prevents long names breaking layout */
+#userList li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* hover */
+#userList li:hover {
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
 }

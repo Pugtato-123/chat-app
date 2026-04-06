@@ -182,7 +182,17 @@ socket.on("userList", (users) => {
 
   users.forEach(u => {
     const li = document.createElement("li");
-    li.textContent = u;
+
+    const img = document.createElement("img");
+    img.src = u.avatar || "https://i.pinimg.com/236x/7e/4a/a3/7e4aa3f27b0a8068c4a1258a1c061557.jpg";
+    img.classList.add("user-pfp");
+
+    const name = document.createElement("span");
+    name.textContent = u.username;
+
+    li.appendChild(img);
+    li.appendChild(name);
+
     list.appendChild(li);
   });
 });

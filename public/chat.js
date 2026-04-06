@@ -15,15 +15,11 @@ const uploadBtn = document.getElementById("uploadBtn");
 const uploadInput = document.getElementById("upload");
 const clearBtn = document.getElementById("clearBtn");
 
-// ===== SAFE HTML =====
 function safeHTML(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// ===== LOGIN =====
+// LOGIN
 loginBtn.onclick = () => {
   const u = usernameInput.value.trim();
   const p = passwordInput.value.trim();
@@ -31,7 +27,6 @@ loginBtn.onclick = () => {
 
   socket.emit("login", { username: u, password: p }, (res) => {
     if (!res.success) return alert("Invalid login");
-
     username = u;
 
     document.querySelector(".controls").style.display = "none";
@@ -40,7 +35,6 @@ loginBtn.onclick = () => {
     document.body.classList.add("font-" + (res.font || "default"));
     document.body.classList.add("theme-" + (res.theme || "macchiato"));
 
-    // ACCOUNT DISPLAY
     const header = document.querySelector("header");
     const acc = document.createElement("div");
     acc.classList.add("account");
@@ -69,45 +63,37 @@ loginBtn.onclick = () => {
   });
 };
 
-// ===== REGISTER =====
+// REGISTER
 registerBtn.onclick = () => {
   const u = usernameInput.value.trim();
   const p = passwordInput.value.trim();
   if (!u || !p) return alert("Enter username + password");
-
   socket.emit("register", { username: u, password: p }, (res) => {
     if (!res.success) return alert(res.message);
     alert("Account created");
   });
 };
 
-// ===== SEND MESSAGE =====
+// SEND MESSAGE
 function sendMessage() {
   const msg = input.value.trim();
   if (!msg) return;
 
-  // --- SLASH COMMANDS ---
   if (msg.startsWith("/")) {
-    const [command] = msg.slice(1).split(" "); // first word after "/"
-
-    switch (command) {
-      case "clear":
-        socket.emit("clearChat"); // send to server
-        input.value = "";
-        return;
-      // add more commands here if needed
+    const [command] = msg.slice(1).split(" ");
+    if (command === "clear") {
+      socket.emit("clearChat");
+      input.value = "";
+      return;
     }
-
     input.value = "";
     return;
   }
 
-  // --- NORMAL MESSAGE ---
   socket.emit("chatMessage", msg);
   input.value = "";
 }
 
-// ===== ENTER KEY =====
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -115,15 +101,11 @@ input.addEventListener("keydown", (e) => {
   }
 });
 
-// ===== RENDER MESSAGE =====
 function renderMessage(data) {
   const now = Date.now();
-
-  if (
-    lastMsg &&
-    lastMsg.username === data.username &&
-    now - lastMsg.time < 120000
-  ) {
+  if (lastMsg &&
+      lastMsg.username === data.username &&
+      now - lastMsg.time < 120000) {
     const line = document.createElement("div");
     line.innerHTML = safeHTML(data.msg);
     lastMsg.text.appendChild(line);
@@ -137,7 +119,6 @@ function renderMessage(data) {
 
     const div = document.createElement("div");
     div.classList.add("msg");
-
     div.innerHTML = `
       <div style="display:flex; gap:10px;">
         <img src="${data.avatar || 'https://via.placeholder.com/32'}"
@@ -153,58 +134,32 @@ function renderMessage(data) {
         </div>
       </div>
     `;
-
     const textDiv = div.querySelector(".msg-text");
     const line = document.createElement("div");
     line.innerHTML = safeHTML(data.msg);
     textDiv.appendChild(line);
-
     messages.appendChild(div);
-
     lastMsg = { username: data.username, time: now, text: textDiv };
   }
-
   if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50) {
-    requestAnimationFrame(() => {
-      messages.scrollTop = messages.scrollHeight;
-    });
+    requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
   }
 }
 
-// ===== MESSAGE HISTORY =====
 socket.on("messageHistory", (history) => {
   messages.innerHTML = "";
   lastMsg = null;
-  history.forEach((data) => renderMessage(data));
+  history.forEach(renderMessage);
 });
 
-// ===== RECEIVE MESSAGE =====
 socket.on("chatMessage", (data) => renderMessage(data));
 
-// ===== USER LIST =====
-socket.on("userList", (users) => {
-  const list = document.getElementById("userList");
-  list.innerHTML = "";
-
-  users.forEach((u) => {
-    const li = document.createElement("li");
-
-    const img = document.createElement("img");
-    img.src =
-      u.avatar ||
-      "https://i.pinimg.com/236x/7e/4a/a3/7e4aa3f27b0a8068c4a1258a1c061557.jpg";
-    img.classList.add("user-pfp");
-
-    const name = document.createElement("span");
-    name.textContent = u.username;
-
-    li.appendChild(img);
-    li.appendChild(name);
-
-    list.appendChild(li);
-  });
+socket.on("chatCleared", () => {
+  messages.innerHTML = "";
+  lastMsg = null;
 });
 
+// Upload & Settings remain the same as before
 // ===== IMAGE UPLOAD =====
 uploadBtn.onclick = () => uploadInput.click();
 

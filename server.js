@@ -2,9 +2,9 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const bodyParser = require("body-parser");
 const multer = require("multer");
 const path = require("path");
+const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
 const fs = require("fs");
 
@@ -12,17 +12,17 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ===== POSTGRES POOL =====
+// ===== DATABASE (PostgreSQL) =====
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://user:pass@localhost:5432/chatdb",
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" 
+    ? { rejectUnauthorized: false } 
+    : false
 });
 
-// ===== MIDDLEWARE =====
+// ===== STATIC + UPLOAD SETUP =====
 app.use(express.static("public"));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
 
-// ===== UPLOAD CONFIG =====
 const uploadDir = "./public/uploads";
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -38,30 +38,33 @@ app.post("/upload", upload.single("image"), (req, res) => {
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
-// ===== SOCKET.IO =====
-const users = {}; // socket.id -> username
+// ===== REALTIME CHAT (Socket.IO) =====
+let users = {}; // socket.id => username
 
 io.on("connection", (socket) => {
-  console.log("New connection:", socket.id);
 
-  // ---- LOGIN ----
+  // ===== LOGIN =====
   socket.on("login", async ({ username, password }, callback) => {
     try {
-      const res = await pool.query(
-        "SELECT * FROM users WHERE username=$1 AND password=$2",
-        [username, password]
+      const result = await pool.query(
+        "SELECT * FROM users WHERE username=$1",
+        [username]
       );
-      if (!res.rows[0]) return callback({ success: false });
+      const user = result.rows[0];
+      if (!user) return callback({ success: false });
+
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) return callback({ success: false });
 
       users[socket.id] = username;
 
       callback({
         success: true,
-        font: res.rows[0].font,
-        theme: res.rows[0].theme,
-        color: res.rows[0].color,
-        avatar: res.rows[0].avatar,
-        role: res.rows[0].role,
+        avatar: user.avatar,
+        role: user.role,
+        color: user.color,
+        font: user.font,
+        theme: user.theme,
       });
 
       sendUserList();
@@ -72,50 +75,68 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ---- REGISTER ----
+  // ===== REGISTER =====
   socket.on("register", async ({ username, password }, callback) => {
     try {
+      const hash = await bcrypt.hash(password, 10);
       await pool.query(
-        "INSERT INTO users(username,password,role) VALUES($1,$2,'user')",
-        [username, password]
+        "INSERT INTO users (username,password) VALUES ($1,$2)",
+        [username, hash]
       );
       callback({ success: true });
     } catch (err) {
-      callback({ success: false, message: "Username taken" });
+      if (err.code === "23505") {
+        callback({ success: false, message: "Username taken" });
+      } else {
+        console.error(err);
+        callback({ success: false });
+      }
     }
   });
 
-  // ---- SEND MESSAGE ----
+  // ===== SEND MESSAGE =====
   socket.on("chatMessage", async (msg) => {
     const username = users[socket.id];
     if (!username) return;
 
-    const time = Date.now();
+    const time = new Date().toISOString();
+
     try {
-      await pool.query("INSERT INTO messages(username,msg,time) VALUES($1,$2,$3)", [
-        username,
-        msg,
-        time,
-      ]);
+      await pool.query(
+        "INSERT INTO messages (username,message,time) VALUES ($1,$2,$3)",
+        [username, msg, time]
+      );
+
       const userRes = await pool.query(
         "SELECT role, avatar, color FROM users WHERE username=$1",
         [username]
       );
-      const user = userRes.rows[0];
-      io.emit("chatMessage", { username, msg, time, role: user.role, avatar: user.avatar, color: user.color });
+
+      const u = userRes.rows[0];
+      io.emit("chatMessage", {
+        username,
+        msg,
+        time,
+        role: u.role,
+        avatar: u.avatar,
+        color: u.color,
+      });
     } catch (err) {
       console.error(err);
     }
   });
 
-  // ---- CLEAR CHAT ----
+  // ===== CLEAR CHAT =====
   socket.on("clearChat", async () => {
     const username = users[socket.id];
     if (!username) return;
 
     try {
-      const roleRes = await pool.query("SELECT role FROM users WHERE username=$1", [username]);
-      if (!roleRes.rows[0] || roleRes.rows[0].role !== "admin") return;
+      const roleRes = await pool.query(
+        "SELECT role FROM users WHERE username=$1",
+        [username]
+      );
+      if (roleRes.rows[0]?.role !== "admin") return;
       await pool.query("DELETE FROM messages");
       io.emit("chatCleared");
     } catch (err) {
@@ -123,7 +144,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ---- SETTINGS ----
+  // ===== SETTINGS =====
   socket.on("setAvatar", async (avatar) => {
     const username = users[socket.id];
     if (!username) return;
@@ -145,20 +166,21 @@ io.on("connection", (socket) => {
     await pool.query("UPDATE users SET theme=$1 WHERE username=$2", [theme, username]);
   });
 
-  // ---- DISCONNECT ----
+  // ===== DISCONNECT =====
   socket.on("disconnect", () => {
     delete users[socket.id];
     sendUserList();
   });
 
-  // ---- SEND USER LIST ----
+  // ===== HELPERS =====
   async function sendUserList() {
-    const usernames = Object.values(users);
-    if (!usernames.length) return;
+    const names = Object.values(users);
+    if (!names.length) return;
+
     try {
       const res = await pool.query(
-        `SELECT username, avatar FROM users WHERE username = ANY($1)`,
-        [usernames]
+        "SELECT username, avatar FROM users WHERE username = ANY($1)",
+        [names]
       );
       io.emit("userList", res.rows);
     } catch (err) {
@@ -166,7 +188,6 @@ io.on("connection", (socket) => {
     }
   }
 
-  // ---- SEND MESSAGE HISTORY ----
   async function sendMessageHistory(targetSocket) {
     try {
       const res = await pool.query("SELECT * FROM messages ORDER BY id ASC");
@@ -177,6 +198,6 @@ io.on("connection", (socket) => {
   }
 });
 
-// ===== START SERVER =====
+// ===== START =====
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log("Server running: " + PORT));

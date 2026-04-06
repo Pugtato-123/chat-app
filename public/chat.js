@@ -1,4 +1,6 @@
-const socket = io();
+const socket = io({
+  transports: ['websocket', 'polling'],
+});
 
 socket.on("connect", () => {
   console.log("Socket connected!", socket.id);

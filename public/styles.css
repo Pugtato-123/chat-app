@@ -177,3 +177,19 @@ header {
   margin-bottom: 8px;
   width: 180px;
 }
+
+/* ===== UPLOAD BUTTON ===== */
+#uploadBtn {
+  margin-left: 8px;
+  padding: 6px 10px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+#uploadBtn:hover {
+  background: #1e293b;
+  color: white;
+}

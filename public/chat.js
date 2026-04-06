@@ -58,7 +58,7 @@ function sendMessage() {
   input.value = "";
 }
 
-sendBtn.onclick = sendMessage;
+
 input.addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
@@ -145,3 +145,39 @@ function saveSettings() {
 
   document.getElementById("settingsPanel").style.display = "none";
 }
+
+const uploadBtn = document.getElementById("uploadBtn");
+const uploadInput = document.getElementById("upload");
+
+uploadBtn.onclick = () => {
+  uploadInput.click();
+};
+
+uploadInput.onchange = async () => {
+  const file = uploadInput.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("image", file);
+
+  uploadBtn.textContent = "...";
+
+  try {
+    const res = await fetch("/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+
+    socket.emit(
+      "chatMessage",
+      `<img src="${data.url}" style="max-width:200px;border-radius:6px;">`
+    );
+  } catch {
+    alert("Upload failed");
+  }
+
+  uploadBtn.textContent = "📎";
+  uploadInput.value = "";
+};

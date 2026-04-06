@@ -5,7 +5,6 @@ let lastMsg = null;
 
 const messages = document.getElementById("messages");
 const input = document.getElementById("msgInput");
-const sendBtn = document.getElementById("sendBtn");
 
 const usernameInput = document.getElementById("usernameInput");
 const passwordInput = document.getElementById("passwordInput");
@@ -31,6 +30,9 @@ loginBtn.onclick = () => {
 
     document.querySelector(".controls").style.display = "none";
 
+    // APPLY FONT FROM DB
+    document.body.className = "font-" + (res.font || "default");
+
     // ===== TOP RIGHT ACCOUNT =====
     const header = document.querySelector("header");
 
@@ -44,10 +46,6 @@ loginBtn.onclick = () => {
     const img = document.createElement("img");
     img.src = res.avatar || "https://via.placeholder.com/32";
 
-    acc.appendChild(name);
-    acc.appendChild(img);
-
-    // SETTINGS BUTTON
     const settingsBtn = document.createElement("button");
     settingsBtn.textContent = "⚙";
     settingsBtn.classList.add("settings-btn");
@@ -56,6 +54,8 @@ loginBtn.onclick = () => {
       document.getElementById("settingsPanel").classList.toggle("open");
     };
 
+    acc.appendChild(name);
+    acc.appendChild(img);
     acc.appendChild(settingsBtn);
 
     header.appendChild(acc);
@@ -64,7 +64,7 @@ loginBtn.onclick = () => {
   });
 };
 
-// ===== SEND =====
+// ===== SEND MESSAGE =====
 function sendMessage() {
   const msg = input.value.trim();
   if (!msg) return;
@@ -73,102 +73,92 @@ function sendMessage() {
   input.value = "";
 }
 
-
+// ENTER SEND
 input.addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
 
-// ===== RECEIVE =====
+// ===== RECEIVE MESSAGE (FIXED GROUP + AUTOSCROLL) =====
 socket.on("chatMessage", (data) => {
+  const isNearBottom =
+    messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50;
+
   const now = Date.now();
 
-  // GROUP MESSAGE
   if (
     lastMsg &&
     lastMsg.username === data.username &&
     now - lastMsg.time < 120000
   ) {
-    lastMsg.text.innerHTML += `<br>${data.msg}`;
-    return;
+    const line = document.createElement("div");
+    line.innerHTML = data.msg;
+    lastMsg.text.appendChild(line);
+  } else {
+    const roleTag =
+      data.role === "admin"
+        ? "<span style='color:red;font-size:12px'>[ADMIN]</span>"
+        : data.role === "mod"
+        ? "<span style='color:lime;font-size:12px'>[MOD]</span>"
+        : "";
+
+    const div = document.createElement("div");
+    div.classList.add("msg");
+
+    div.innerHTML = `
+      <div style="display:flex; gap:10px;">
+        <img src="${data.avatar || 'https://via.placeholder.com/32'}"
+             style="width:32px;height:32px;border-radius:50%;">
+        <div>
+          <div class="msg-header">
+            <strong style="color:${data.color}">
+              ${data.username} ${roleTag}
+            </strong>
+            <span class="time">${new Date(data.time).toLocaleTimeString()}</span>
+          </div>
+          <div class="msg-text"></div>
+        </div>
+      </div>
+    `;
+
+    const textDiv = div.querySelector(".msg-text");
+
+    const line = document.createElement("div");
+    line.innerHTML = data.msg;
+    textDiv.appendChild(line);
+
+    messages.appendChild(div);
+
+    lastMsg = {
+      username: data.username,
+      time: now,
+      text: textDiv
+    };
   }
 
-  const roleTag =
-    data.role === "admin"
-      ? "<span style='color:red;font-size:12px'>[ADMIN]</span>"
-      : data.role === "mod"
-      ? "<span style='color:lime;font-size:12px'>[MOD]</span>"
-      : "";
+  if (isNearBottom) {
+    requestAnimationFrame(() => {
+      messages.scrollTop = messages.scrollHeight;
+    });
+  }
+});
 
-  const div = document.createElement("div");
-  div.classList.add("msg");
+// ===== USER LIST =====
+socket.on("userList", (users) => {
+  const list = document.getElementById("userList");
+  list.innerHTML = "";
 
-  div.innerHTML = `
-    <div style="display:flex; gap:10px;">
-      <img src="${data.avatar || 'https://via.placeholder.com/32'}"
-           style="width:32px;height:32px;border-radius:50%;">
-      <div>
-        <div class="msg-header">
-          <strong style="color:${data.color}">
-            ${data.username} ${roleTag}
-          </strong>
-          <span class="time">${new Date(data.time).toLocaleTimeString()}</span>
-        </div>
-        <div class="msg-text">${data.msg}</div>
-      </div>
-    </div>
-  `;
-
-  messages.appendChild(div);
-
-  lastMsg = {
-    username: data.username,
-    time: now,
-    text: div.querySelector(".msg-text")
-  };
-
-  messages.scrollTop = messages.scrollHeight;
+  users.forEach(u => {
+    const li = document.createElement("li");
+    li.textContent = u;
+    list.appendChild(li);
+  });
 });
 
 // ===== IMAGE UPLOAD =====
-const upload = document.getElementById("upload");
-if (upload) {
-  upload.onchange = async () => {
-    const file = upload.files[0];
-
-    const formData = new FormData();
-    formData.append("image", file);
-
-    const res = await fetch("/upload", {
-      method: "POST",
-      body: formData
-    });
-
-    const data = await res.json();
-
-    socket.emit("chatMessage", `<img src="${data.url}" style="max-width:200px;">`);
-  };
-}
-
-// ===== SETTINGS SAVE =====
-function saveSettings() {
-  const avatar = document.getElementById("avatarInput").value;
-  const color = document.getElementById("colorInput").value;
-  const font = document.getElementById("fontSelect").value;
-
-  socket.emit("setAvatar", avatar);
-  socket.emit("chatMessage", `/color ${username} ${color}`);
-
-  document.body.className = "font-" + font;
-
-  document.getElementById("settingsPanel").classList.remove("open");
-}
-
 const uploadBtn = document.getElementById("uploadBtn");
 const uploadInput = document.getElementById("upload");
 
-uploadBtn.onclick = () => {
-  uploadInput.click();
-};
+uploadBtn.onclick = () => uploadInput.click();
 
 uploadInput.onchange = async () => {
   const file = uploadInput.files[0];
@@ -199,13 +189,17 @@ uploadInput.onchange = async () => {
   uploadInput.value = "";
 };
 
-socket.on("userList", (users) => {
-  const list = document.getElementById("userList");
-  list.innerHTML = "";
+// ===== SETTINGS SAVE =====
+function saveSettings() {
+  const avatar = document.getElementById("avatarInput").value;
+  const color = document.getElementById("colorInput").value;
+  const font = document.getElementById("fontSelect").value;
 
-  users.forEach(u => {
-    const li = document.createElement("li");
-    li.textContent = u;
-    list.appendChild(li);
-  });
-});
+  socket.emit("setAvatar", avatar);
+  socket.emit("setFont", font);
+  socket.emit("chatMessage", `/color ${username} ${color}`);
+
+  document.body.className = "font-" + font;
+
+  document.getElementById("settingsPanel").classList.remove("open");
+}

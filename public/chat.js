@@ -1,5 +1,13 @@
 const socket = io();
 
+socket.on("connect", () => {
+  console.log("Socket connected!", socket.id);
+});
+
+socket.on("connect_error", (err) => {
+  console.error("Socket failed to connect:", err);
+});
+
 let username = null;
 let isAdmin = false;
 let avatar = null;

@@ -11,7 +11,7 @@ const usernameInput = document.getElementById("usernameInput");
 const passwordInput = document.getElementById("passwordInput");
 const loginBtn = document.getElementById("loginBtn");
 
-// ENTER LOGIN
+// ===== ENTER LOGIN =====
 usernameInput.addEventListener("keypress", e => {
   if (e.key === "Enter") loginBtn.click();
 });
@@ -19,7 +19,7 @@ passwordInput.addEventListener("keypress", e => {
   if (e.key === "Enter") loginBtn.click();
 });
 
-// LOGIN
+// ===== LOGIN =====
 loginBtn.onclick = () => {
   const u = usernameInput.value.trim();
   const p = passwordInput.value.trim();
@@ -30,10 +30,26 @@ loginBtn.onclick = () => {
     username = u;
 
     document.querySelector(".controls").style.display = "none";
+
+    // settings button
+    const header = document.querySelector("header");
+
+    const settingsBtn = document.createElement("button");
+    settingsBtn.textContent = "⚙";
+    settingsBtn.style.marginLeft = "auto";
+
+    settingsBtn.onclick = () => {
+      document.getElementById("settingsPanel").style.display = "block";
+    };
+
+    header.appendChild(settingsBtn);
+
+    input.disabled = false;
+    sendBtn.disabled = false;
   });
 };
 
-// SEND
+// ===== SEND =====
 function sendMessage() {
   const msg = input.value.trim();
   if (!msg) return;
@@ -47,16 +63,17 @@ input.addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
 
-// RECEIVE
+// ===== RECEIVE =====
 socket.on("chatMessage", (data) => {
   const now = Date.now();
 
+  // GROUP MESSAGE
   if (
     lastMsg &&
     lastMsg.username === data.username &&
     now - lastMsg.time < 120000
   ) {
-    lastMsg.el.querySelector(".msg-text").innerHTML += `<br>${data.msg}`;
+    lastMsg.text.innerHTML += `<br>${data.msg}`;
     return;
   }
 
@@ -75,10 +92,12 @@ socket.on("chatMessage", (data) => {
       <img src="${data.avatar || 'https://via.placeholder.com/32'}"
            style="width:32px;height:32px;border-radius:50%;">
       <div>
-        <strong style="color:${data.color}">
-          ${data.username} ${roleTag}
-        </strong>
-        <span class="time">${new Date(data.time).toLocaleTimeString()}</span>
+        <div class="msg-header">
+          <strong style="color:${data.color}">
+            ${data.username} ${roleTag}
+          </strong>
+          <span class="time">${new Date(data.time).toLocaleTimeString()}</span>
+        </div>
         <div class="msg-text">${data.msg}</div>
       </div>
     </div>
@@ -89,13 +108,13 @@ socket.on("chatMessage", (data) => {
   lastMsg = {
     username: data.username,
     time: now,
-    el: div
+    text: div.querySelector(".msg-text")
   };
 
   messages.scrollTop = messages.scrollHeight;
 });
 
-// IMAGE UPLOAD
+// ===== IMAGE UPLOAD =====
 const upload = document.getElementById("upload");
 if (upload) {
   upload.onchange = async () => {
@@ -113,4 +132,16 @@ if (upload) {
 
     socket.emit("chatMessage", `<img src="${data.url}" style="max-width:200px;">`);
   };
+}
+
+// ===== SETTINGS SAVE =====
+function saveSettings() {
+  const avatar = document.getElementById("avatarInput").value;
+  const color = document.getElementById("colorInput").value;
+
+  socket.emit("setAvatar", avatar);
+
+  socket.emit("chatMessage", `/color ${username} ${color}`);
+
+  document.getElementById("settingsPanel").style.display = "none";
 }

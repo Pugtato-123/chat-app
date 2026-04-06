@@ -151,3 +151,29 @@ header {
   color: #94a3b8;
   font-size: 12px;
 }
+
+/* ===== MESSAGE GROUPING ===== */
+.msg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===== SETTINGS PANEL ===== */
+.settings {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: #020617;
+  border: 1px solid #1e293b;
+  padding: 12px;
+  border-radius: 8px;
+  display: none;
+  z-index: 1000;
+}
+
+.settings input {
+  display: block;
+  margin-bottom: 8px;
+  width: 180px;
+}

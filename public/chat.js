@@ -84,13 +84,26 @@ registerBtn.onclick = () => {
 function sendMessage() {
   const msg = input.value.trim();
   if (!msg) return;
+
+  // --- SLASH COMMANDS ---
+  if (msg.startsWith("/")) {
+    const [command] = msg.slice(1).split(" "); // get first word after "/"
+
+    if (command === "clear") {
+      socket.emit("clearChat"); // ask server to clear messages
+      input.value = "";
+      return;
+    }
+
+    // You can add more slash commands here
+    input.value = "";
+    return;
+  }
+
+  // --- NORMAL MESSAGE ---
   socket.emit("chatMessage", msg);
   input.value = "";
 }
-
-input.addEventListener("keypress", e => { if (e.key === "Enter") sendMessage(); });
-usernameInput.addEventListener("keypress", e => { if (e.key === "Enter") loginBtn.click(); });
-passwordInput.addEventListener("keypress", e => { if (e.key === "Enter") loginBtn.click(); });
 
 // ===== RENDER MESSAGE =====
 function renderMessage(data) {
@@ -229,6 +242,11 @@ function saveSettings() {
 clearBtn.onclick = () => {
   socket.emit("clearChat");
 };
+
+socket.on("chatCleared", () => {
+  messages.innerHTML = "";
+  lastMsg = null;
+});
 
 socket.on("chatCleared", () => {
   messages.innerHTML = "";

@@ -142,6 +142,8 @@ socket.on("chatMessage", (data) => {
 socket.on("messageHistory", (history) => {
   messages.innerHTML = "";
   history.forEach(data => appendMessage(data));
+
+  messages.scrollTop = messages.scrollHeight;
 });
 
 // ===== AVATAR LIVE UPDATE =====
@@ -178,26 +180,60 @@ socket.on("kicked", () => {
 
 // ===== APPEND MESSAGE HELPER =====
 function appendMessage(data) {
+  const isNearBottom =
+    messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50;
+
   const roleTag =
     data.role === "admin"
-      ? "<span style='color:red;font-size:12px'>[ADMIN]</span>"
+      ? "<span class='role admin'>ADMIN</span>"
       : data.role === "mod"
-      ? "<span style='color:lime;font-size:12px'>[MOD]</span>"
+      ? "<span class='role mod'>MOD</span>"
       : "";
 
   const div = document.createElement("div");
   div.classList.add("msg");
+
   div.innerHTML = `
-    <div style="display:flex; gap:10px;">
-      <img src="${data.avatar || 'https://via.placeholder.com/32'}"
-           style="width:32px;height:32px;border-radius:50%;">
-      <div>
-        <strong style="color:${data.color}">${data.username} ${roleTag}</strong>
+    <img class="avatar" src="${data.avatar || 'https://via.placeholder.com/32'}">
+    <div class="bubble">
+      <div class="meta">
+        <span class="name" style="color:${data.color}">
+          ${data.username}
+        </span>
+        ${roleTag}
         <span class="time">${data.time}</span>
-        <div>${data.msg}</div>
       </div>
+      <div class="text">${data.msg}</div>
     </div>
   `;
+
   messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+
+  if (isNearBottom) {
+    messages.scrollTo({
+      top: messages.scrollHeight,
+      behavior: "smooth"
+    });
+  } else {
+    showNewMessageIndicator();
+  }
+}
+
+const newMsgBtn = document.createElement("button");
+newMsgBtn.textContent = "⬇ New messages";
+newMsgBtn.classList.add("new-msg-btn");
+newMsgBtn.style.display = "none";
+
+newMsgBtn.onclick = () => {
+  messages.scrollTo({
+    top: messages.scrollHeight,
+    behavior: "smooth"
+  });
+  newMsgBtn.style.display = "none";
+};
+
+document.querySelector(".chat").appendChild(newMsgBtn);
+
+function showNewMessageIndicator() {
+  newMsgBtn.style.display = "block";
 }

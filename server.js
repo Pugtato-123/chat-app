@@ -1,203 +1,224 @@
-// server.js
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const multer = require("multer");
 const path = require("path");
-const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
-const fs = require("fs");
+const multer = require("multer");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ===== DATABASE (PostgreSQL) =====
+const PORT = process.env.PORT || 3000;
+
+// ===== DATABASE =====
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" 
-    ? { rejectUnauthorized: false } 
-    : false
+  ssl: { rejectUnauthorized: false }
 });
 
-// ===== STATIC + UPLOAD SETUP =====
-app.use(express.static("public"));
-
-const uploadDir = "./public/uploads";
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+// ===== UPLOAD =====
+const upload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
-const upload = multer({ storage });
 
-// ===== IMAGE UPLOAD =====
+app.use("/uploads", express.static("uploads"));
+app.use(express.static(path.join(__dirname, "public")));
+
+// ===== DB SETUP =====
+(async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE,
+      password TEXT,
+      admin BOOLEAN DEFAULT false,
+      avatar TEXT,
+      role TEXT DEFAULT 'user',
+      color TEXT DEFAULT '#93c5fd',
+      font TEXT DEFAULT 'default',
+      theme TEXT DEFAULT 'macchiato'
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      username TEXT,
+      message TEXT,
+      time TEXT
+    );
+  `);
+})();
+
+// ===== DATA =====
+let users = {};
+
+// ===== HELPER: build user list with avatars =====
+async function buildUserList() {
+  return await Promise.all(
+    Object.values(users).map(async (u) => {
+      const res = await pool.query(
+        "SELECT avatar FROM users WHERE username = $1",
+        [u]
+      );
+
+      return {
+        username: u,
+        avatar: res.rows[0]?.avatar
+      };
+    })
+  );
+}
+
+// ===== UPLOAD ROUTE =====
 app.post("/upload", upload.single("image"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file" });
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
-// ===== REALTIME CHAT (Socket.IO) =====
-let users = {}; // socket.id => username
-
+// ===== SOCKET =====
 io.on("connection", (socket) => {
 
-  // ===== LOGIN =====
-  socket.on("login", async ({ username, password }, callback) => {
+  // REGISTER
+  socket.on("register", async ({ username, password }, cb) => {
     try {
-      const result = await pool.query(
-        "SELECT * FROM users WHERE username=$1",
-        [username]
-      );
-      const user = result.rows[0];
-      if (!user) return callback({ success: false });
-
-      const valid = await bcrypt.compare(password, user.password);
-      if (!valid) return callback({ success: false });
-
-      users[socket.id] = username;
-
-      callback({
-        success: true,
-        avatar: user.avatar,
-        role: user.role,
-        color: user.color,
-        font: user.font,
-        theme: user.theme,
-      });
-
-      sendUserList();
-      sendMessageHistory(socket);
-    } catch (err) {
-      console.error(err);
-      callback({ success: false });
-    }
-  });
-
-  // ===== REGISTER =====
-  socket.on("register", async ({ username, password }, callback) => {
-    try {
-      const hash = await bcrypt.hash(password, 10);
       await pool.query(
         "INSERT INTO users (username,password) VALUES ($1,$2)",
-        [username, hash]
+        [username, password]
       );
-      callback({ success: true });
-    } catch (err) {
-      if (err.code === "23505") {
-        callback({ success: false, message: "Username taken" });
-      } else {
-        console.error(err);
-        callback({ success: false });
-      }
+      cb({ success: true });
+    } catch {
+      cb({ success: false, message: "User exists" });
     }
   });
 
-  // ===== SEND MESSAGE =====
+  // LOGIN
+  socket.on("login", async ({ username, password }, cb) => {
+    const res = await pool.query(
+      "SELECT * FROM users WHERE username=$1",
+      [username]
+    );
+
+    const user = res.rows[0];
+    if (!user || user.password !== password) {
+      return cb({ success: false });
+    }
+
+    users[socket.id] = username;
+
+    // LOAD HISTORY
+    const result = await pool.query(`
+      SELECT m.*, u.avatar, u.role, u.color
+      FROM messages m
+      LEFT JOIN users u ON m.username = u.username
+      ORDER BY m.id ASC
+    `);
+
+    const history = result.rows.map(row => ({
+      username: row.username,
+      msg: row.message,
+      time: row.time,
+      avatar: row.avatar,
+      role: row.role,
+      color: row.color
+    }));
+
+    socket.emit("messageHistory", history);
+
+    // SEND USER LIST
+    const userList = await buildUserList();
+    io.emit("userList", userList);
+
+    cb({
+      success: true,
+      avatar: user.avatar,
+      role: user.role,
+      color: user.color,
+      font: user.font,
+      theme: user.theme
+    });
+  });
+
+  // SETTINGS
+  socket.on("setAvatar", async (url) => {
+    const u = users[socket.id];
+    if (!u) return;
+
+    await pool.query(
+      "UPDATE users SET avatar=$1 WHERE username=$2",
+      [url, u]
+    );
+  });
+
+  socket.on("setFont", async (font) => {
+    const u = users[socket.id];
+    if (!u) return;
+
+    await pool.query(
+      "UPDATE users SET font=$1 WHERE username=$2",
+      [font, u]
+    );
+  });
+
+  socket.on("setColor", async (color) => {
+    const u = users[socket.id];
+    if (!u) return;
+
+    await pool.query(
+      "UPDATE users SET color=$1 WHERE username=$2",
+      [color, u]
+    );
+  });
+
+  socket.on("setTheme", async (theme) => {
+    const u = users[socket.id];
+    if (!u) return;
+
+    await pool.query(
+      "UPDATE users SET theme=$1 WHERE username=$2",
+      [theme, u]
+    );
+  });
+
+  // MESSAGE
   socket.on("chatMessage", async (msg) => {
-    const username = users[socket.id];
-    if (!username) return;
+    const u = users[socket.id];
+    if (!u) return;
 
     const time = new Date().toISOString();
 
-    try {
-      await pool.query(
-        "INSERT INTO messages (username,message,time) VALUES ($1,$2,$3)",
-        [username, msg, time]
-      );
+    const userRes = await pool.query(
+      "SELECT avatar, role, color FROM users WHERE username=$1",
+      [u]
+    );
 
-      const userRes = await pool.query(
-        "SELECT role, avatar, color FROM users WHERE username=$1",
-        [username]
-      );
+    const messageData = {
+      username: u,
+      msg,
+      time,
+      ...userRes.rows[0]
+    };
 
-      const u = userRes.rows[0];
-      io.emit("chatMessage", {
-        username,
-        msg,
-        time,
-        role: u.role,
-        avatar: u.avatar,
-        color: u.color,
-      });
-    } catch (err) {
-      console.error(err);
-    }
+    await pool.query(
+      "INSERT INTO messages (username,message,time) VALUES ($1,$2,$3)",
+      [u, msg, time]
+    );
+
+    io.emit("chatMessage", messageData);
   });
 
-  // ===== CLEAR CHAT =====
-  socket.on("clearChat", async () => {
-    const username = users[socket.id];
-    if (!username) return;
-
-    try {
-      const roleRes = await pool.query(
-        "SELECT role FROM users WHERE username=$1",
-        [username]
-      );
-      if (roleRes.rows[0]?.role !== "admin") return;
-      await pool.query("DELETE FROM messages");
-      io.emit("chatCleared");
-    } catch (err) {
-      console.error(err);
-    }
-  });
-
-  // ===== SETTINGS =====
-  socket.on("setAvatar", async (avatar) => {
-    const username = users[socket.id];
-    if (!username) return;
-    await pool.query("UPDATE users SET avatar=$1 WHERE username=$2", [avatar, username]);
-  });
-  socket.on("setColor", async (color) => {
-    const username = users[socket.id];
-    if (!username) return;
-    await pool.query("UPDATE users SET color=$1 WHERE username=$2", [color, username]);
-  });
-  socket.on("setFont", async (font) => {
-    const username = users[socket.id];
-    if (!username) return;
-    await pool.query("UPDATE users SET font=$1 WHERE username=$2", [font, username]);
-  });
-  socket.on("setTheme", async (theme) => {
-    const username = users[socket.id];
-    if (!username) return;
-    await pool.query("UPDATE users SET theme=$1 WHERE username=$2", [theme, username]);
-  });
-
-  // ===== DISCONNECT =====
-  socket.on("disconnect", () => {
+  // DISCONNECT (FIXED)
+  socket.on("disconnect", async () => {
     delete users[socket.id];
-    sendUserList();
+
+    const userList = await buildUserList();
+    io.emit("userList", userList);
   });
 
-  // ===== HELPERS =====
-  async function sendUserList() {
-    const names = Object.values(users);
-    if (!names.length) return;
-
-    try {
-      const res = await pool.query(
-        "SELECT username, avatar FROM users WHERE username = ANY($1)",
-        [names]
-      );
-      io.emit("userList", res.rows);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function sendMessageHistory(targetSocket) {
-    try {
-      const res = await pool.query("SELECT * FROM messages ORDER BY id ASC");
-      targetSocket.emit("messageHistory", res.rows);
-    } catch (err) {
-      console.error(err);
-    }
-  }
 });
 
 // ===== START =====
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server running: " + PORT));
+server.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
+});

@@ -227,3 +227,82 @@ body.font-jetbrains {
 body.font-fira {
   font-family: "Fira Code", monospace;
 }
+
+/* ========================= */
+/* CATPPUCCIN THEMES */
+/* ========================= */
+
+/* ===== MACCHIATO (DARK) ===== */
+body.theme-macchiato {
+  --bg: #24273a;
+  --base: #1e2030;
+  --mantle: #181926;
+  --text: #cad3f5;
+  --subtext: #a5adcb;
+  --border: #363a4f;
+  --accent: #8aadf4;
+}
+
+/* ===== LATTE (LIGHT) ===== */
+body.theme-latte {
+  --bg: #eff1f5;
+  --base: #e6e9ef;
+  --mantle: #dce0e8;
+  --text: #4c4f69;
+  --subtext: #6c6f85;
+  --border: #bcc0cc;
+  --accent: #1e66f5;
+}
+
+/* ===== APPLY VARIABLES ===== */
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+header,
+.controls,
+.sidebar,
+.composer {
+  background: var(--mantle);
+  border-color: var(--border);
+}
+
+.messages {
+  background: var(--bg);
+}
+
+.controls input,
+.composer input,
+.settings-inner input,
+.settings-inner select {
+  background: var(--base);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.controls button,
+.settings-inner button {
+  background: var(--accent);
+}
+
+#uploadBtn {
+  background: var(--base);
+  border: 1px solid var(--border);
+  color: var(--subtext);
+}
+
+#uploadBtn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.time {
+  color: var(--subtext);
+}
+
+.settings-inner {
+  background: var(--mantle);
+  border: 1px solid var(--border);
+}

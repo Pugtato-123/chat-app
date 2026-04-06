@@ -224,13 +224,16 @@ function saveSettings() {
   const avatar = document.getElementById("avatarInput").value;
   const color = document.getElementById("colorInput").value;
   const font = document.getElementById("fontSelect").value;
+  const theme = document.getElementById("themeSelect").value;
 
   if (avatar) socket.emit("setAvatar", avatar);
   if (color) socket.emit("setColor", color);
   if (font) socket.emit("setFont", font);
+  if (theme) socket.emit("setTheme", theme);
 
   document.body.className = "";
   document.body.classList.add("font-" + font);
+  document.body.classList.add("theme-" + theme);
 
   document.getElementById("settingsPanel").classList.remove("open");
 }

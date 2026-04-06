@@ -16,20 +16,38 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// ===== CREATE TABLES =====
+// ===== CREATE / UPDATE TABLES =====
 (async () => {
+  // Ensure users table exists
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE,
       password TEXT,
-      admin BOOLEAN DEFAULT false,
-      avatar TEXT,
-      role TEXT DEFAULT 'user',
-      color TEXT DEFAULT '#93c5fd'
+      admin BOOLEAN DEFAULT false
     );
   `);
 
+  // Add missing columns safely
+  const userColumns = ['avatar', 'role', 'color'];
+  for (const col of userColumns) {
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN ${col} TEXT`);
+      console.log(`Added column ${col} to users table`);
+    } catch (err) {
+      if (err.code === '42701') {
+        // Column already exists, ignore
+      } else {
+        console.error(`Error adding column ${col}:`, err);
+      }
+    }
+  }
+
+  // Set defaults for role and color if missing
+  await pool.query(`UPDATE users SET role = 'user' WHERE role IS NULL`);
+  await pool.query(`UPDATE users SET color = '#93c5fd' WHERE color IS NULL`);
+
+  // Ensure messages table exists
   await pool.query(`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
@@ -38,6 +56,7 @@ const pool = new Pool({
       time TEXT
     );
   `);
+
 })();
 
 // ===== IN-MEMORY USERS =====

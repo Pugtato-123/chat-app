@@ -193,3 +193,66 @@ header {
   background: #1e293b;
   color: white;
 }
+
+/* ===== ACCOUNT TOP RIGHT ===== */
+.account {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+/* ===== SETTINGS PANEL ===== */
+.settings {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings.open {
+  display: flex;
+}
+
+.settings-inner {
+  background: #020617;
+  padding: 20px;
+  border-radius: 10px;
+  width: 260px;
+  border: 1px solid #1e293b;
+}
+
+.settings-inner input,
+.settings-inner select {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 6px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  color: white;
+}
+
+.settings-inner button {
+  width: 100%;
+  padding: 8px;
+  background: #1d4ed8;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+body.font-jetbrains {
+  font-family: "JetBrains Mono", monospace;
+}
+
+body.font-fira {
+  font-family: "Fira Code", monospace;
+}

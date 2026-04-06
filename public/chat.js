@@ -31,21 +31,36 @@ loginBtn.onclick = () => {
 
     document.querySelector(".controls").style.display = "none";
 
-    // settings button
+    // ===== TOP RIGHT ACCOUNT =====
     const header = document.querySelector("header");
 
+    const acc = document.createElement("div");
+    acc.classList.add("account");
+
+    const name = document.createElement("span");
+    name.textContent = username;
+    name.style.color = res.color;
+
+    const img = document.createElement("img");
+    img.src = res.avatar || "https://via.placeholder.com/32";
+
+    acc.appendChild(name);
+    acc.appendChild(img);
+
+    // SETTINGS BUTTON
     const settingsBtn = document.createElement("button");
     settingsBtn.textContent = "⚙";
-    settingsBtn.style.marginLeft = "auto";
+    settingsBtn.classList.add("settings-btn");
 
     settingsBtn.onclick = () => {
-      document.getElementById("settingsPanel").style.display = "block";
+      document.getElementById("settingsPanel").classList.toggle("open");
     };
 
-    header.appendChild(settingsBtn);
+    acc.appendChild(settingsBtn);
+
+    header.appendChild(acc);
 
     input.disabled = false;
-    sendBtn.disabled = false;
   });
 };
 
@@ -138,12 +153,14 @@ if (upload) {
 function saveSettings() {
   const avatar = document.getElementById("avatarInput").value;
   const color = document.getElementById("colorInput").value;
+  const font = document.getElementById("fontSelect").value;
 
   socket.emit("setAvatar", avatar);
-
   socket.emit("chatMessage", `/color ${username} ${color}`);
 
-  document.getElementById("settingsPanel").style.display = "none";
+  document.body.className = "font-" + font;
+
+  document.getElementById("settingsPanel").classList.remove("open");
 }
 
 const uploadBtn = document.getElementById("uploadBtn");
@@ -181,3 +198,14 @@ uploadInput.onchange = async () => {
   uploadBtn.textContent = "📎";
   uploadInput.value = "";
 };
+
+socket.on("userList", (users) => {
+  const list = document.getElementById("userList");
+  list.innerHTML = "";
+
+  users.forEach(u => {
+    const li = document.createElement("li");
+    li.textContent = u;
+    list.appendChild(li);
+  });
+});
